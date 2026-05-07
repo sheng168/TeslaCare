@@ -10,52 +10,101 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Query(sort: \Car.dateAdded, order: .reverse) private var cars: [Car]
+    @State private var showingAddCar = false
 
     var body: some View {
         NavigationSplitView {
             List {
-                ForEach(items) { item in
+                ForEach(cars) { car in
                     NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                        CarDetailView(car: car)
                     } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                        CarRowView(car: car)
                     }
                 }
-                .onDelete(perform: deleteItems)
+                .onDelete(perform: deleteCars)
             }
+            .navigationTitle("My Cars")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
                 }
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button(action: { showingAddCar = true }) {
+                        Label("Add Car", systemImage: "plus")
                     }
                 }
             }
+            .sheet(isPresented: $showingAddCar) {
+                AddCarView()
+            }
+            .overlay {
+                if cars.isEmpty {
+                    ContentUnavailableView(
+                        "No Cars",
+                        systemImage: "car.fill",
+                        description: Text("Add a car to start tracking tire tread depth")
+                    )
+                }
+            }
         } detail: {
-            Text("Select an item")
+            Text("Select a car")
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteCars(offsets: IndexSet) {
         withAnimation {
             for index in offsets {
-                modelContext.delete(items[index])
+                modelContext.delete(cars[index])
             }
+        }
+    }
+}
+
+// MARK: - Car Row View
+struct CarRowView: View {
+    let car: Car
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(car.displayName)
+                .font(.headline)
+            
+            Text("\(car.year) \(car.make) \(car.model)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            
+            if let health = car.tireHealthPercentage {
+                HStack(spacing: 8) {
+                    ProgressView(value: health, total: 100)
+                        .tint(healthColor(for: health))
+                        .frame(maxWidth: 150)
+                    
+                    Text("\(Int(health))%")
+                        .font(.caption)
+                        .foregroundStyle(healthColor(for: health))
+                }
+            } else {
+                Text("No measurements")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func healthColor(for percentage: Double) -> Color {
+        switch percentage {
+        case 50...100: return .green
+        case 25..<50: return .orange
+        default: return .red
         }
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: Car.self, inMemory: true)
 }
