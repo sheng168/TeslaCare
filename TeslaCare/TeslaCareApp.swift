@@ -15,6 +15,7 @@ struct TeslaCareApp: App {
             Item.self,
             Car.self,
             TireMeasurement.self,
+            TireRotationEvent.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

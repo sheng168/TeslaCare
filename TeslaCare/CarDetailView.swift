@@ -13,6 +13,7 @@ struct CarDetailView: View {
     let car: Car
     
     @State private var showingAddMeasurement = false
+    @State private var showingRotateTires = false
     @State private var selectedPosition: TirePosition?
     
     var sortedMeasurements: [TireMeasurement] {
@@ -67,6 +68,36 @@ struct CarDetailView: View {
                 TireGridView(car: car, selectedPosition: $selectedPosition)
                     .padding(.horizontal)
                 
+                // Rotate Tires Button
+                Button(action: { showingRotateTires = true }) {
+                    HStack {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Text("Rotate Tires")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .padding(.horizontal)
+                
+                // Rotation History
+                if let rotations = car.rotationEvents?.sorted(by: { $0.date > $1.date }), !rotations.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Rotation History")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ForEach(rotations) { rotation in
+                            RotationEventRow(rotation: rotation)
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.top)
+                }
+                
                 // Measurements History
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Measurement History")
@@ -102,6 +133,9 @@ struct CarDetailView: View {
         }
         .sheet(isPresented: $showingAddMeasurement) {
             AddMeasurementView(car: car, preselectedPosition: selectedPosition)
+        }
+        .sheet(isPresented: $showingRotateTires) {
+            RotateTiresView(car: car)
         }
         .onChange(of: selectedPosition) { _, newValue in
             if newValue != nil {
@@ -193,10 +227,56 @@ struct MeasurementRowView: View {
     }
 }
 
+// MARK: - Rotation Event Row
+struct RotationEventRow: View {
+    let rotation: TireRotationEvent
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.title3)
+                .foregroundStyle(.blue)
+                .frame(width: 30)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(rotation.pattern.rawValue)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                Text(rotation.date, format: .dateTime.month().day().year())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                if !rotation.notes.isEmpty {
+                    Text(rotation.notes)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                
+                if let mileage = rotation.mileage {
+                    Text("\(mileage.formatted()) miles")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            Image(systemName: rotation.pattern.systemImage)
+                .font(.title2)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 #Preview {
     NavigationStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireRotationEvent.self, configurations: config)
         
         let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
         container.mainContext.insert(car)

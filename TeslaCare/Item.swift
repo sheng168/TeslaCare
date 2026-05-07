@@ -45,6 +45,9 @@ final class Car {
     @Relationship(deleteRule: .cascade, inverse: \TireMeasurement.car)
     var measurements: [TireMeasurement]?
     
+    @Relationship(deleteRule: .cascade, inverse: \TireRotationEvent.car)
+    var rotationEvents: [TireRotationEvent]?
+    
     init(name: String, make: String, model: String, year: Int, dateAdded: Date = Date()) {
         self.name = name
         self.make = make
