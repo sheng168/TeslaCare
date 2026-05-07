@@ -14,6 +14,7 @@ struct CarDetailView: View {
     
     @State private var showingAddMeasurement = false
     @State private var showingRotateTires = false
+    @State private var showingReplaceTires = false
     @State private var selectedPosition: TirePosition?
     
     var sortedMeasurements: [TireMeasurement] {
@@ -68,18 +69,35 @@ struct CarDetailView: View {
                 TireGridView(car: car, selectedPosition: $selectedPosition)
                     .padding(.horizontal)
                 
-                // Rotate Tires Button
-                Button(action: { showingRotateTires = true }) {
-                    HStack {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                        Text("Rotate Tires")
+                // Action Buttons
+                HStack(spacing: 12) {
+                    Button(action: { showingRotateTires = true }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.title2)
+                            Text("Rotate")
+                                .font(.subheadline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    
+                    Button(action: { showingReplaceTires = true }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                            Text("Replace")
+                                .font(.subheadline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
                 }
                 .padding(.horizontal)
                 
@@ -92,6 +110,21 @@ struct CarDetailView: View {
                         
                         ForEach(rotations) { rotation in
                             RotationEventRow(rotation: rotation)
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.top)
+                }
+                
+                // Replacement History
+                if let replacements = car.replacementEvents?.sorted(by: { $0.date > $1.date }), !replacements.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Replacement History")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ForEach(replacements) { replacement in
+                            ReplacementEventRow(replacement: replacement)
                         }
                         .padding(.horizontal)
                     }
@@ -136,6 +169,9 @@ struct CarDetailView: View {
         }
         .sheet(isPresented: $showingRotateTires) {
             RotateTiresView(car: car)
+        }
+        .sheet(isPresented: $showingReplaceTires) {
+            ReplaceTiresView(car: car)
         }
         .onChange(of: selectedPosition) { _, newValue in
             if newValue != nil {
@@ -273,10 +309,79 @@ struct RotationEventRow: View {
     }
 }
 
+// MARK: - Replacement Event Row
+struct ReplacementEventRow: View {
+    let replacement: TireReplacementEvent
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "plus.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.green)
+                .frame(width: 30)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(replacement.replacementDescription)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                if !replacement.brand.isEmpty || !replacement.modelName.isEmpty {
+                    Text("\(replacement.brand) \(replacement.modelName)".trimmingCharacters(in: .whitespaces))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Text(replacement.date, format: .dateTime.month().day().year())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                HStack(spacing: 8) {
+                    if let mileage = replacement.mileage {
+                        Text("\(mileage.formatted()) miles")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    if let cost = replacement.cost {
+                        Text("$\(cost, format: .number.precision(.fractionLength(2)))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                if !replacement.notes.isEmpty {
+                    Text(replacement.notes)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            
+            Spacer()
+            
+            VStack(spacing: 2) {
+                ForEach(replacement.replacedPositions.prefix(2), id: \.self) { position in
+                    Image(systemName: position.systemImage)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if replacement.replacedCount > 2 {
+                    Text("+\(replacement.replacedCount - 2)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 #Preview {
     NavigationStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireRotationEvent.self, configurations: config)
+        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireRotationEvent.self, TireReplacementEvent.self, configurations: config)
         
         let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
         container.mainContext.insert(car)

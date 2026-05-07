@@ -37,7 +37,7 @@ struct AddCarView: View {
                 }
                 
                 Section {
-                    Text("If you don't provide a name, the car will be identified as \"\(year) \(make.isEmpty ? "Make" : make) \(model.isEmpty ? "Model" : model)\"")
+                    Text("If you don't provide a name, the car will be identified as \"\(year, format: .number.grouping(.never)) \(make.isEmpty ? "Make" : make) \(model.isEmpty ? "Model" : model)\"")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
