@@ -63,47 +63,6 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Car Row View
-struct CarRowView: View {
-    let car: Car
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(car.displayName)
-                .font(.headline)
-            
-            Text("\(car.year) \(car.make) \(car.model)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            
-            if let health = car.tireHealthPercentage {
-                HStack(spacing: 8) {
-                    ProgressView(value: health, total: 100)
-                        .tint(healthColor(for: health))
-                        .frame(maxWidth: 150)
-                    
-                    Text("\(Int(health))%")
-                        .font(.caption)
-                        .foregroundStyle(healthColor(for: health))
-                }
-            } else {
-                Text("No measurements")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-    
-    private func healthColor(for percentage: Double) -> Color {
-        switch percentage {
-        case 50...100: return .green
-        case 25..<50: return .orange
-        default: return .red
-        }
-    }
-}
-
 #Preview {
     ContentView()
         .modelContainer(for: Car.self, inMemory: true)

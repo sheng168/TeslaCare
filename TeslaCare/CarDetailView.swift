@@ -28,7 +28,7 @@ struct CarDetailView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text("\(car.year) \(car.make) \(car.model)")
+                    Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     
@@ -103,6 +103,11 @@ struct CarDetailView: View {
         .sheet(isPresented: $showingAddMeasurement) {
             AddMeasurementView(car: car, preselectedPosition: selectedPosition)
         }
+        .onChange(of: selectedPosition) { _, newValue in
+            if newValue != nil {
+                showingAddMeasurement = true
+            }
+        }
         .onChange(of: showingAddMeasurement) { _, newValue in
             if !newValue {
                 selectedPosition = nil
@@ -115,110 +120,6 @@ struct CarDetailView: View {
         case 50...100: return .green
         case 25..<50: return .orange
         default: return .red
-        }
-    }
-}
-
-// MARK: - Tire Grid View
-struct TireGridView: View {
-    let car: Car
-    @Binding var selectedPosition: TirePosition?
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            // Front tires
-            HStack(spacing: 20) {
-                TireCardView(
-                    position: .frontLeft,
-                    measurement: car.latestMeasurement(for: .frontLeft)
-                ) {
-                    selectedPosition = .frontLeft
-                }
-                
-                TireCardView(
-                    position: .frontRight,
-                    measurement: car.latestMeasurement(for: .frontRight)
-                ) {
-                    selectedPosition = .frontRight
-                }
-            }
-            
-            Image(systemName: "car.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            
-            // Rear tires
-            HStack(spacing: 20) {
-                TireCardView(
-                    position: .rearLeft,
-                    measurement: car.latestMeasurement(for: .rearLeft)
-                ) {
-                    selectedPosition = .rearLeft
-                }
-                
-                TireCardView(
-                    position: .rearRight,
-                    measurement: car.latestMeasurement(for: .rearRight)
-                ) {
-                    selectedPosition = .rearRight
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Tire Card View
-struct TireCardView: View {
-    let position: TirePosition
-    let measurement: TireMeasurement?
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 8) {
-                Image(systemName: position.systemImage)
-                    .font(.title2)
-                
-                Text(position.rawValue)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                
-                if let measurement = measurement {
-                    Text(measurement.treadDepthFormatted)
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(treadColor(for: measurement))
-                    
-                    if measurement.isDanger {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                    } else if measurement.isWarning {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundStyle(.orange)
-                            .font(.caption)
-                    }
-                } else {
-                    Text("No data")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
-    }
-    
-    private func treadColor(for measurement: TireMeasurement) -> Color {
-        if measurement.isDanger {
-            return .red
-        } else if measurement.isWarning {
-            return .orange
-        } else {
-            return .green
         }
     }
 }
