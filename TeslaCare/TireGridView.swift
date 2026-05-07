@@ -35,7 +35,7 @@ struct TireGridView: View {
                 }
             }
             
-            Image(systemName: "car.fill")
+            Image(systemName: "car.top.door.front.left.and.front.right.open")
                 .font(.system(size: 40))
                 .foregroundStyle(.secondary)
             

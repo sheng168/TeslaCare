@@ -15,6 +15,7 @@ struct CarDetailView: View {
     @State private var showingAddMeasurement = false
     @State private var showingRotateTires = false
     @State private var showingReplaceTires = false
+    @State private var showingLogAirFilter = false
     @State private var selectedPosition: TirePosition?
     
     var sortedMeasurements: [TireMeasurement] {
@@ -131,6 +132,21 @@ struct CarDetailView: View {
                     .padding(.top)
                 }
                 
+                // Air Filter History
+                if let airFilters = car.airFilterChanges?.sorted(by: { $0.date > $1.date }), !airFilters.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Air Filter Changes")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ForEach(airFilters) { filterChange in
+                            AirFilterChangeRow(filterChange: filterChange)
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.top)
+                }
+                
                 // Measurements History
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Measurement History")
@@ -163,6 +179,12 @@ struct CarDetailView: View {
                     Label("Add Measurement", systemImage: "plus")
                 }
             }
+            
+            ToolbarItem(placement: .secondaryAction) {
+                Button(action: { showingLogAirFilter = true }) {
+                    Label("Log Air Filter", systemImage: "air.purifier.fill")
+                }
+            }
         }
         .sheet(isPresented: $showingAddMeasurement) {
             AddMeasurementView(car: car, preselectedPosition: selectedPosition)
@@ -172,6 +194,9 @@ struct CarDetailView: View {
         }
         .sheet(isPresented: $showingReplaceTires) {
             ReplaceTiresView(car: car)
+        }
+        .sheet(isPresented: $showingLogAirFilter) {
+            LogAirFilterChangeView(car: car)
         }
         .onChange(of: selectedPosition) { _, newValue in
             if newValue != nil {
@@ -378,10 +403,72 @@ struct ReplacementEventRow: View {
     }
 }
 
+// MARK: - Air Filter Change Row
+struct AirFilterChangeRow: View {
+    let filterChange: AirFilterChangeEvent
+    
+    var body: some View {
+        HStack {
+            Image(systemName: filterChange.filterType.systemImage)
+                .font(.title3)
+                .foregroundStyle(.purple)
+                .frame(width: 30)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(filterChange.filterType.rawValue)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                if !filterChange.brand.isEmpty {
+                    Text(filterChange.brand)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Text(filterChange.date, format: .dateTime.month().day().year())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                HStack(spacing: 8) {
+                    if let mileage = filterChange.mileage {
+                        Text("\(mileage.formatted()) miles")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    if let cost = filterChange.cost {
+                        Text("$\(cost, format: .number.precision(.fractionLength(2)))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                if !filterChange.partNumber.isEmpty {
+                    Text("Part #: \(filterChange.partNumber)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                if !filterChange.notes.isEmpty {
+                    Text(filterChange.notes)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 #Preview {
     NavigationStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireRotationEvent.self, TireReplacementEvent.self, configurations: config)
+        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireRotationEvent.self, TireReplacementEvent.self, AirFilterChangeEvent.self, configurations: config)
         
         let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
         container.mainContext.insert(car)
