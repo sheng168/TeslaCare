@@ -15,10 +15,59 @@ struct SettingsView: View {
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("replacementThreshold") private var replacementThreshold = 2.0
     @AppStorage("warningThreshold") private var warningThreshold = 4.0
+    @State private var showingTeslaLogin = false
+    
+    let teslaAuth = TeslaAuthManager.shared
     
     var body: some View {
         NavigationStack {
             List {
+                // Tesla Account Section
+                Section("Tesla Account") {
+                    if teslaAuth.isAuthenticated {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Connected")
+                                    .font(.headline)
+                                if let email = teslaAuth.currentUser {
+                                    Text(email)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        }
+                        
+                        Button {
+                            Task {
+                                try? await teslaAuth.fetchVehicles()
+                            }
+                        } label: {
+                            Label("Sync Vehicles", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        
+                        Button(role: .destructive) {
+                            teslaAuth.logout()
+                        } label: {
+                            Text("Disconnect Account")
+                        }
+                    } else {
+                        Button {
+                            showingTeslaLogin = true
+                        } label: {
+                            Label("Connect Tesla Account", systemImage: "bolt.car.fill")
+                        }
+                        
+                        Text("Connect your Tesla account to automatically import your vehicles.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
                 Section("Units") {
                     Picker("Tread Depth Unit", selection: $measurementUnit) {
                         Text("32nds of an inch").tag("imperial")
@@ -107,6 +156,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .sheet(isPresented: $showingTeslaLogin) {
+                TeslaLoginView()
+            }
         }
     }
     

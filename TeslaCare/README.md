@@ -5,12 +5,20 @@ TeslaCare is a tire tread depth tracking application that helps car owners monit
 
 ## Features
 
-### 1. **Car Management**
+### 1. **Tesla Account Integration** ⚡️ NEW
+- Connect your Tesla account to automatically import vehicles
+- Secure OAuth authentication
+- Automatic vehicle details (make, model, year, VIN)
+- Sync vehicles on demand
+- Manage connection from Settings
+- [Full Documentation](TESLA_INTEGRATION.md)
+
+### 2. **Car Management**
 - Add multiple cars with make, model, year, and optional custom name
 - View all cars in a list with tire health indicators
 - Delete cars (cascading delete removes all associated measurements)
 
-### 2. **Tire Tread Tracking**
+### 3. **Tire Tread Tracking**
 - Track tread depth for all four tires (Front Left, Front Right, Rear Left, Rear Right)
 - Measurements stored in 32nds of an inch (industry standard)
 - Visual tire grid showing latest measurements for each position
@@ -19,12 +27,12 @@ TeslaCare is a tire tread depth tracking application that helps car owners monit
   - **Orange**: Warning - monitor closely (2-4/32")
   - **Red**: Danger - replace immediately (below 2/32")
 
-### 3. **Measurement History**
+### 4. **Measurement History**
 - Complete history of all measurements sorted by date
 - Add notes and mileage to each measurement
 - Track trends over time
 
-### 4. **Health Calculations**
+### 5. **Health Calculations**
 - Overall tire health percentage based on latest measurements
 - Average tread depth across all four tires
 - Calculated using: (current depth - 2/32") / (10/32" - 2/32") * 100%
@@ -99,16 +107,44 @@ TeslaCare is a tire tread depth tracking application that helps car owners monit
 7. **Computed properties**: Clean separation of logic from UI
 8. **Cascading deletes**: Proper data cleanup
 9. **Preview providers**: Each view includes previews with sample data
+10. **Async/await**: Modern concurrency for network calls
+11. **@Observable**: SwiftUI state management
 
 ## Usage Guide
 
-1. **Add a car**: Tap + button on main screen
-2. **View car details**: Tap any car in the list
-3. **Add measurement**: 
-   - Tap + in toolbar, OR
+### Getting Started
+
+#### Option 1: Connect Tesla Account (Recommended for Tesla owners)
+1. Open the app for the first time
+2. Tap **"Connect Tesla Account"** button
+3. Enter your Tesla email and password
+4. Select which vehicles to import
+5. Start tracking tire health!
+
+#### Option 2: Add Cars Manually
+1. Tap the **+** button in the top-right
+2. Select **"Add Car Manually"**
+3. Fill in make, model, year, and optional name
+4. Tap **"Add"**
+
+### Managing Cars
+1. **View car details**: Tap any car in the list
+2. **Delete cars**: Swipe left or use Edit mode
+3. **Sync Tesla vehicles**: Settings → Tesla Account → Sync Vehicles
+
+### Tracking Tire Tread
+1. **Add measurement**: 
+   - Tap + in toolbar on car detail screen, OR
    - Tap any tire in the grid to pre-select that position
-4. **Track progress**: Monitor health percentage and individual tire depths
-5. **View history**: Scroll down to see all past measurements
+2. **Track progress**: Monitor health percentage and individual tire depths
+3. **View history**: Scroll down to see all past measurements
+
+### Settings & Account Management
+1. Go to **Settings** tab
+2. Manage Tesla account connection
+3. Adjust measurement units
+4. Configure notifications
+5. Export/import data
 
 ## Safety Thresholds
 

@@ -12,6 +12,8 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Car.dateAdded, order: .reverse) private var cars: [Car]
     @State private var showingAddCar = false
+    @State private var showingTeslaLogin = false
+    @State private var showingAddMenu = false
 
     var body: some View {
         NavigationSplitView {
@@ -31,7 +33,19 @@ struct ContentView: View {
                     EditButton()
                 }
                 ToolbarItem {
-                    Button(action: { showingAddCar = true }) {
+                    Menu {
+                        Button {
+                            showingAddCar = true
+                        } label: {
+                            Label("Add Car Manually", systemImage: "plus")
+                        }
+                        
+                        Button {
+                            showingTeslaLogin = true
+                        } label: {
+                            Label("Connect Tesla Account", systemImage: "bolt.car.fill")
+                        }
+                    } label: {
                         Label("Add Car", systemImage: "plus")
                     }
                 }
@@ -39,13 +53,32 @@ struct ContentView: View {
             .sheet(isPresented: $showingAddCar) {
                 AddCarView()
             }
+            .sheet(isPresented: $showingTeslaLogin) {
+                TeslaLoginView()
+            }
             .overlay {
                 if cars.isEmpty {
-                    ContentUnavailableView(
-                        "No Cars",
-                        systemImage: "car.fill",
-                        description: Text("Add a car to start tracking tire tread depth")
-                    )
+                    ContentUnavailableView {
+                        Label("No Cars", systemImage: "car.fill")
+                    } description: {
+                        Text("Add a car to start tracking tire tread depth")
+                    } actions: {
+                        VStack(spacing: 12) {
+                            Button {
+                                showingTeslaLogin = true
+                            } label: {
+                                Label("Connect Tesla Account", systemImage: "bolt.car.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            
+                            Button {
+                                showingAddCar = true
+                            } label: {
+                                Label("Add Car Manually", systemImage: "plus")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
                 }
             }
         } detail: {
