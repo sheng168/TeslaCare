@@ -224,7 +224,7 @@ struct MeasurementRowView: View {
     let measurement: TireMeasurement
     
     var body: some View {
-        HStack {
+        HStack(alignment: .top) {
             Image(systemName: measurement.position.systemImage)
                 .font(.title3)
                 .foregroundStyle(.secondary)
@@ -251,11 +251,76 @@ struct MeasurementRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 
+                // Show detailed measurements if available
+                if measurement.hasMultiplePoints,
+                   let inner = measurement.innerTreadDepth,
+                   let center = measurement.centerTreadDepth,
+                   let outer = measurement.outerTreadDepth {
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Divider()
+                            .padding(.vertical, 2)
+                        
+                        Text("Detailed Measurements")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                        
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Inner")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(String(format: "%.1f/32\"", inner))
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(treadColorForValue(inner))
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Center")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(String(format: "%.1f/32\"", center))
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(treadColorForValue(center))
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Outer")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(String(format: "%.1f/32\"", outer))
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(treadColorForValue(outer))
+                            }
+                        }
+                        
+                        // Show wear pattern description
+                        if let wearPattern = measurement.wearPatternDescription {
+                            HStack(spacing: 4) {
+                                if measurement.hasUnevenWear {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.caption2)
+                                }
+                                Text(wearPattern)
+                                    .font(.caption2)
+                                    .foregroundStyle(measurement.hasUnevenWear ? .orange : .secondary)
+                            }
+                            .padding(.top, 2)
+                        }
+                    }
+                }
+                
                 if !measurement.notes.isEmpty {
                     Text(measurement.notes)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                        .padding(.top, 2)
                 }
                 
                 if let mileage = measurement.mileage {
@@ -267,10 +332,18 @@ struct MeasurementRowView: View {
             
             Spacer()
             
-            Text(measurement.treadDepthFormatted)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundStyle(treadColor(for: measurement))
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(measurement.treadDepthFormatted)
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(treadColor(for: measurement))
+                
+                if measurement.hasMultiplePoints {
+                    Text("avg")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding()
         .background(Color(.secondarySystemBackground))
@@ -281,6 +354,16 @@ struct MeasurementRowView: View {
         if measurement.isDanger {
             return .red
         } else if measurement.isWarning {
+            return .orange
+        } else {
+            return .green
+        }
+    }
+    
+    private func treadColorForValue(_ value: Double) -> Color {
+        if value <= 2.0 {
+            return .red
+        } else if value <= 4.0 {
             return .orange
         } else {
             return .green

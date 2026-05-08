@@ -13,6 +13,11 @@ TeslaCare is a tire tread depth tracking application that helps car owners monit
 ### 2. **Tire Tread Tracking**
 - Track tread depth for all four tires (Front Left, Front Right, Rear Left, Rear Right)
 - Measurements stored in 32nds of an inch (industry standard)
+- **Multiple measurement points per tire** for detecting uneven wear patterns:
+  - Measure inner edge, center, and outer edge independently
+  - Automatic average calculation
+  - Uneven wear detection with threshold alerts
+  - Helpful diagnostics (alignment, inflation, suspension issues)
 - Visual tire grid showing latest measurements for each position
 - Color-coded health indicators:
   - **Green**: Good condition (above 4/32")
@@ -43,12 +48,17 @@ TeslaCare is a tire tread depth tracking application that helps car owners monit
   - `tireHealthPercentage`: Overall tire health score
 
 ### TireMeasurement
-- **Properties**: date, treadDepth, position, notes, mileage
-- **Relationships**: Many-to-one with Car
+- **Properties**: date, treadDepth, position, notes, mileage, innerTreadDepth, centerTreadDepth, outerTreadDepth
+- **Relationships**: Many-to-one with Car and Tire
 - **Computed Properties**:
   - `treadDepthFormatted`: Display-friendly format (e.g., "7.5/32\"")
   - `isWarning`: True if <= 4/32"
   - `isDanger`: True if <= 2/32"
+  - `hasMultiplePoints`: True if measurement includes inner, center, and outer values
+  - `calculatedAverage`: Average of the three measurement points
+  - `wearDifference`: Difference between highest and lowest measurement points
+  - `hasUnevenWear`: True if wear difference exceeds 2/32"
+  - `wearPatternDescription`: Diagnostic message about wear pattern (center wear, edge wear, alignment issues, etc.)
 
 ### TirePosition (Enum)
 - frontLeft, frontRight, rearLeft, rearRight
@@ -81,7 +91,13 @@ TeslaCare is a tire tread depth tracking application that helps car owners monit
 ### AddMeasurementView
 - Tire position picker with icons
 - Date picker
-- Tread depth slider (0-12/32")
+- **Multiple measurement mode for uneven wear detection:**
+  - Toggle to enable measuring inner, center, and outer tread depths
+  - Individual sliders for each measurement point
+  - Automatic average calculation
+  - Uneven wear detection and warnings
+  - Detailed notes automatically generated with all measurements
+- Single measurement mode with tread depth slider (0-12/32")
 - Real-time color-coded feedback
 - Visual guide showing safe/warning/danger zones
 - Optional mileage tracking
