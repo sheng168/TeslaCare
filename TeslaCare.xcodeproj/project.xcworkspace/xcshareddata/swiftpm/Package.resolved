@@ -1,0 +1,24 @@
+{
+  "originHash" : "02d6b01de4646fea55ab8d6f8a9d87e2e1c3e0ec45f0c088ace7dbae751ac674",
+  "pins" : [
+    {
+      "identity" : "starscream",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/daltoniam/Starscream.git",
+      "state" : {
+        "revision" : "c6bfd1af48efcc9a9ad203665db12375ba6b145a",
+        "version" : "4.0.8"
+      }
+    },
+    {
+      "identity" : "teslaswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jonasman/TeslaSwift.git",
+      "state" : {
+        "revision" : "0c2ff15dea6feb2ee62558a00e7ae6b186b7078a",
+        "version" : "12.2.0"
+      }
+    }
+  ],
+  "version" : 3
+}

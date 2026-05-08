@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		3C0F5D462FAE090B00981291 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 3C0F5D412FAE090B00981291 /* README.md */; };
+		3C0F5D822FAE681F00981291 /* TeslaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3C0F5D812FAE681F00981291 /* TeslaSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +71,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3C0F5D822FAE681F00981291 /* TeslaSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,6 +133,7 @@
 			);
 			name = TeslaCare;
 			packageProductDependencies = (
+				3C0F5D812FAE681F00981291 /* TeslaSwift */,
 			);
 			productName = TeslaCare;
 			productReference = 3C05F4382FACEA9A00AEBE42 /* TeslaCare.app */;
@@ -214,6 +217,9 @@
 			);
 			mainGroup = 3C05F42F2FACEA9A00AEBE42;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				3C0F5D802FAE681F00981291 /* XCRemoteSwiftPackageReference "TeslaSwift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3C05F4392FACEA9A00AEBE42 /* Products */;
 			projectDirPath = "";
@@ -602,6 +608,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		3C0F5D802FAE681F00981291 /* XCRemoteSwiftPackageReference "TeslaSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jonasman/TeslaSwift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3C0F5D812FAE681F00981291 /* TeslaSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3C0F5D802FAE681F00981291 /* XCRemoteSwiftPackageReference "TeslaSwift" */;
+			productName = TeslaSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 3C05F4302FACEA9A00AEBE42 /* Project object */;
 }
