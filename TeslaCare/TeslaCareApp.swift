@@ -12,7 +12,6 @@ import SwiftData
 struct TeslaCareApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
             Car.self,
             TireMeasurement.self,
             TireRotationEvent.self,
