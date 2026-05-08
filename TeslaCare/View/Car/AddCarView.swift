@@ -13,7 +13,7 @@ struct AddCarView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
-    @State private var make = ""
+    @State private var make = "Tesla"
     @State private var model = ""
     @State private var year = Calendar.current.component(.year, from: Date())
     
