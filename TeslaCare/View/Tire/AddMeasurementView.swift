@@ -25,7 +25,15 @@ struct AddMeasurementView: View {
     init(car: Car, preselectedPosition: TirePosition? = nil) {
         self.car = car
         self.preselectedPosition = preselectedPosition
-        _selectedPosition = State(initialValue: preselectedPosition ?? .frontLeft)
+        let position = preselectedPosition ?? .frontLeft
+        _selectedPosition = State(initialValue: position)
+        
+        // Prefill tread depth with latest measurement for the selected position
+        if let latestMeasurement = car.latestMeasurement(for: position) {
+            _treadDepth = State(initialValue: latestMeasurement.treadDepth)
+        } else {
+            _treadDepth = State(initialValue: 8.0)
+        }
     }
     
     var body: some View {
@@ -39,6 +47,14 @@ struct AddMeasurementView: View {
                                 Text(position.rawValue)
                             }
                             .tag(position)
+                        }
+                    }
+                    .onChange(of: selectedPosition) { oldValue, newValue in
+                        // Update tread depth when position changes
+                        if let latestMeasurement = car.latestMeasurement(for: newValue) {
+                            treadDepth = latestMeasurement.treadDepth
+                        } else {
+                            treadDepth = 8.0
                         }
                     }
                     
@@ -63,6 +79,33 @@ struct AddMeasurementView: View {
                                 Text("DOT: \(tire.dotNumber)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                            }
+                            
+                            // Show latest measurement info
+                            if let latest = car.latestMeasurement(for: selectedPosition) {
+                                Divider()
+                                    .padding(.vertical, 4)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Last Measurement")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .textCase(.uppercase)
+                                    
+                                    HStack {
+                                        Text(latest.treadDepthFormatted)
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(treadColor(for: latest.treadDepth))
+                                        
+                                        Text("•")
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Text(latest.date, style: .date)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                         }
                         .padding(.vertical, 4)
@@ -105,6 +148,24 @@ struct AddMeasurementView: View {
                             }
                         }
                         
+                        // Stepper for precise adjustments
+                        Stepper(value: $treadDepth, in: 0...12, step: 0.5) {
+                            HStack {
+                                Image(systemName: "minus.circle")
+                                    .foregroundStyle(.secondary)
+                                Text("Adjust by 0.5/32\"")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Image(systemName: "plus.circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        
+                        Divider()
+                        
+                        // Slider for quick adjustments
                         Slider(value: $treadDepth, in: 0...12, step: 0.5) {
                             Text("Tread Depth")
                         } minimumValueLabel: {
@@ -157,14 +218,6 @@ struct AddMeasurementView: View {
                     TextField("Notes (optional)", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
                 }
-                
-                Section {
-                    Button("Add Measurement") {
-                        addMeasurement()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .fontWeight(.semibold)
-                }
             }
             .navigationTitle("Add Measurement")
             .navigationBarTitleDisplayMode(.inline)
@@ -173,6 +226,13 @@ struct AddMeasurementView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        addMeasurement()
+                    }
+                    .fontWeight(.semibold)
                 }
             }
         }
