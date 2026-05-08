@@ -37,6 +37,16 @@
 			);
 			target = 3C05F4372FACEA9A00AEBE42 /* TeslaCare */;
 		};
+		3CEFA22B2FAD68FF000FFC6C /* Exceptions for "TeslaCare" folder in "TeslaCareUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AirFilterChange.swift,
+				Model/Item.swift,
+				TireReplacement.swift,
+				TireRotation.swift,
+			);
+			target = 3C05F4522FACEA9C00AEBE42 /* TeslaCareUITests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -44,6 +54,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				3C05F45B2FACEA9C00AEBE42 /* Exceptions for "TeslaCare" folder in "TeslaCare" target */,
+				3CEFA22B2FAD68FF000FFC6C /* Exceptions for "TeslaCare" folder in "TeslaCareUITests" target */,
 			);
 			path = TeslaCare;
 			sourceTree = "<group>";
