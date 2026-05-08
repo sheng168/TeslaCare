@@ -22,14 +22,16 @@ struct TireGridView: View {
             HStack(spacing: 20) {
                 TireCardView(
                     position: .frontLeft,
-                    measurement: car.latestMeasurement(for: .frontLeft)
+                    measurement: car.latestMeasurement(for: .frontLeft),
+                    tire: getTire(for: .frontLeft)
                 ) {
                     selectedPosition = .frontLeft
                 }
                 
                 TireCardView(
                     position: .frontRight,
-                    measurement: car.latestMeasurement(for: .frontRight)
+                    measurement: car.latestMeasurement(for: .frontRight),
+                    tire: getTire(for: .frontRight)
                 ) {
                     selectedPosition = .frontRight
                 }
@@ -43,19 +45,26 @@ struct TireGridView: View {
             HStack(spacing: 20) {
                 TireCardView(
                     position: .rearLeft,
-                    measurement: car.latestMeasurement(for: .rearLeft)
+                    measurement: car.latestMeasurement(for: .rearLeft),
+                    tire: getTire(for: .rearLeft)
                 ) {
                     selectedPosition = .rearLeft
                 }
                 
                 TireCardView(
                     position: .rearRight,
-                    measurement: car.latestMeasurement(for: .rearRight)
+                    measurement: car.latestMeasurement(for: .rearRight),
+                    tire: getTire(for: .rearRight)
                 ) {
                     selectedPosition = .rearRight
                 }
             }
         }
+    }
+    
+    // Helper function to find the tire at a specific position
+    private func getTire(for position: TirePosition) -> Tire? {
+        car.tires?.first { $0.position == position }
     }
 }
 
@@ -63,6 +72,7 @@ struct TireGridView: View {
 struct TireCardView: View {
     let position: TirePosition
     let measurement: TireMeasurement?
+    let tire: Tire?
     let onTap: () -> Void
     
     @State private var isPressed = false
@@ -80,26 +90,48 @@ struct TireCardView: View {
             VStack(spacing: 8) {
                 Image(systemName: position.systemImage)
                     .font(.title2)
+                    .frame(height: 28)
                 
                 Text(position.rawValue)
                     .font(.caption)
                     .fontWeight(.medium)
+                
+                // Show Tire ID/Brand if available
+                Group {
+                    if let tire = tire {
+                        Text(tire.displayName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else {
+                        Text(" ")
+                            .font(.caption2)
+                    }
+                }
+                .frame(height: 14)
                 
                 if let measurement = measurement {
                     Text(measurement.treadDepthFormatted)
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundStyle(treadColor(for: measurement))
+                        .frame(height: 24)
                     
-                    if measurement.isDanger {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                    } else if measurement.isWarning {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundStyle(.orange)
-                            .font(.caption)
+                    Group {
+                        if measurement.isDanger {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                        } else if measurement.isWarning {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                        } else {
+                            Color.clear
+                                .frame(height: 0)
+                        }
                     }
+                    .frame(height: 16)
                 } else {
                     VStack(spacing: 4) {
                         Text("No data")
@@ -110,6 +142,7 @@ struct TireCardView: View {
                             .font(.caption2)
                             .foregroundStyle(.blue)
                     }
+                    .frame(height: 40)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -148,71 +181,84 @@ struct TireCardView: View {
 
 #Preview("All Tires - Good Health") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)
     
     // Add good measurements for all tires
     for position in TirePosition.allCases {
-        let measurement = TireMeasurement(date: Date(), treadDepth: 8.0, position: position)
+        let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: position)
+        tire.car = car
+        container.mainContext.insert(tire)
+        
+        let measurement = TireMeasurement(date: Date(), treadDepth: 8.0, position: position, tire: tire, notes: "", mileage: nil)
         measurement.car = car
         container.mainContext.insert(measurement)
     }
     
-    @State var selectedPosition: TirePosition? = nil
+    return PreviewWrapper(car: car)
+        .modelContainer(container)
+}
+
+private struct PreviewWrapper: View {
+    let car: Car
+    @State private var selectedPosition: TirePosition? = nil
     
-    return VStack {
-        TireGridView(car: car, selectedPosition: $selectedPosition)
-            .padding()
-        
-        if let selected = selectedPosition {
-            Text("Selected: \(selected.rawValue)")
-                .font(.caption)
+    var body: some View {
+        VStack {
+            TireGridView(car: car, selectedPosition: $selectedPosition)
+                .padding()
+            
+            if let selected = selectedPosition {
+                Text("Selected: \(selected.rawValue)")
+                    .font(.caption)
+            }
         }
     }
-    .modelContainer(container)
 }
 
 #Preview("Mixed Tire Health") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "Work Truck", make: "Ford", model: "F-150", year: 2020)
     container.mainContext.insert(car)
     
     // Front left - good
-    let fl = TireMeasurement(date: Date(), treadDepth: 7.5, position: .frontLeft)
+    let tireFL = Tire(brand: "Goodyear", modelName: "Wrangler", size: "265/70R17", currentPosition: .frontLeft)
+    tireFL.car = car
+    container.mainContext.insert(tireFL)
+    let fl = TireMeasurement(date: Date(), treadDepth: 7.5, position: .frontLeft, tire: tireFL, notes: "", mileage: nil)
     fl.car = car
     container.mainContext.insert(fl)
     
     // Front right - warning
-    let fr = TireMeasurement(date: Date(), treadDepth: 3.5, position: .frontRight)
+    let tireFR = Tire(brand: "Goodyear", modelName: "Wrangler", size: "265/70R17", currentPosition: .frontRight)
+    tireFR.car = car
+    container.mainContext.insert(tireFR)
+    let fr = TireMeasurement(date: Date(), treadDepth: 3.5, position: .frontRight, tire: tireFR, notes: "", mileage: nil)
     fr.car = car
     container.mainContext.insert(fr)
     
     // Rear left - danger
-    let rl = TireMeasurement(date: Date(), treadDepth: 1.8, position: .rearLeft)
+    let tireRL = Tire(brand: "Goodyear", modelName: "Wrangler", size: "265/70R17", currentPosition: .rearLeft)
+    tireRL.car = car
+    container.mainContext.insert(tireRL)
+    let rl = TireMeasurement(date: Date(), treadDepth: 1.8, position: .rearLeft, tire: tireRL, notes: "", mileage: nil)
     rl.car = car
     container.mainContext.insert(rl)
     
     // Rear right - good
-    let rr = TireMeasurement(date: Date(), treadDepth: 8.2, position: .rearRight)
+    let tireRR = Tire(brand: "Goodyear", modelName: "Wrangler", size: "265/70R17", currentPosition: .rearRight)
+    tireRR.car = car
+    container.mainContext.insert(tireRR)
+    let rr = TireMeasurement(date: Date(), treadDepth: 8.2, position: .rearRight, tire: tireRR, notes: "", mileage: nil)
     rr.car = car
     container.mainContext.insert(rr)
     
-    @State var selectedPosition: TirePosition? = nil
-    
-    return VStack {
-        TireGridView(car: car, selectedPosition: $selectedPosition)
-            .padding()
-        
-        if let selected = selectedPosition {
-            Text("Selected: \(selected.rawValue)")
-                .font(.caption)
-        }
-    }
-    .modelContainer(container)
+    return PreviewWrapper(car: car)
+        .modelContainer(container)
 }
 
 #Preview("No Measurements") {
@@ -222,37 +268,33 @@ struct TireCardView: View {
     let car = Car(name: "New Car", make: "Honda", model: "Accord", year: 2024)
     container.mainContext.insert(car)
     
-    @State var selectedPosition: TirePosition? = nil
-    
-    return VStack {
-        TireGridView(car: car, selectedPosition: $selectedPosition)
-            .padding()
-        
-        if let selected = selectedPosition {
-            Text("Selected: \(selected.rawValue)")
-                .font(.caption)
-        }
-    }
-    .modelContainer(container)
+    return PreviewWrapper(car: car)
+        .modelContainer(container)
 }
 
 #Preview("Single Tire Card - Good") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "Test", make: "Test", model: "Test", year: 2023)
     container.mainContext.insert(car)
     
-    let measurement = TireMeasurement(date: Date(), treadDepth: 8.5, position: .frontLeft)
+    let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: .frontLeft)
+    tire.car = car
+    container.mainContext.insert(tire)
+    
+    let measurement = TireMeasurement(date: Date(), treadDepth: 8.5, position: .frontLeft, tire: tire, notes: "", mileage: nil)
     measurement.car = car
     container.mainContext.insert(measurement)
     
     return TireCardView(
         position: .frontLeft,
-        measurement: measurement
-    ) {
-        print("Tapped!")
-    }
+        measurement: measurement,
+        tire: tire,
+        onTap: {
+            print("Tapped!")
+        }
+    )
     .frame(width: 150)
     .padding()
     .modelContainer(container)
@@ -260,21 +302,27 @@ struct TireCardView: View {
 
 #Preview("Single Tire Card - Warning") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "Test", make: "Test", model: "Test", year: 2023)
     container.mainContext.insert(car)
     
-    let measurement = TireMeasurement(date: Date(), treadDepth: 3.2, position: .frontRight)
+    let tire = Tire(brand: "Goodyear", modelName: "Eagle F1", size: "245/40R19", currentPosition: .frontRight)
+    tire.car = car
+    container.mainContext.insert(tire)
+    
+    let measurement = TireMeasurement(date: Date(), treadDepth: 3.2, position: .frontRight, tire: tire, notes: "", mileage: nil)
     measurement.car = car
     container.mainContext.insert(measurement)
     
     return TireCardView(
         position: .frontRight,
-        measurement: measurement
-    ) {
-        print("Tapped!")
-    }
+        measurement: measurement,
+        tire: tire,
+        onTap: {
+            print("Tapped!")
+        }
+    )
     .frame(width: 150)
     .padding()
     .modelContainer(container)
@@ -282,21 +330,27 @@ struct TireCardView: View {
 
 #Preview("Single Tire Card - Danger") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "Test", make: "Test", model: "Test", year: 2023)
     container.mainContext.insert(car)
     
-    let measurement = TireMeasurement(date: Date(), treadDepth: 1.5, position: .rearLeft)
+    let tire = Tire(brand: "Bridgestone", modelName: "Turanza", size: "225/50R17", currentPosition: .rearLeft)
+    tire.car = car
+    container.mainContext.insert(tire)
+    
+    let measurement = TireMeasurement(date: Date(), treadDepth: 1.5, position: .rearLeft, tire: tire, notes: "", mileage: nil)
     measurement.car = car
     container.mainContext.insert(measurement)
     
     return TireCardView(
         position: .rearLeft,
-        measurement: measurement
-    ) {
-        print("Tapped!")
-    }
+        measurement: measurement,
+        tire: tire,
+        onTap: {
+            print("Tapped!")
+        }
+    )
     .frame(width: 150)
     .padding()
     .modelContainer(container)
@@ -305,10 +359,12 @@ struct TireCardView: View {
 #Preview("Single Tire Card - No Data") {
     return TireCardView(
         position: .rearRight,
-        measurement: nil
-    ) {
-        print("Tapped!")
-    }
+        measurement: nil,
+        tire: nil,
+        onTap: {
+            print("Tapped!")
+        }
+    )
     .frame(width: 150)
     .padding()
 }

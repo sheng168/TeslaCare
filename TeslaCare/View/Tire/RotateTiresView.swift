@@ -130,21 +130,28 @@ struct RotateTiresView: View {
         // Get the mapping for this rotation pattern
         let mapping = selectedPattern.rotationMapping()
         
-        // Get the most recent measurement for each position
-        var currentMeasurements: [TirePosition: TireMeasurement] = [:]
+        // Get the current tires and their latest measurements
+        var currentTireData: [TirePosition: (tire: Tire, measurement: TireMeasurement?)] = [:]
         for position in TirePosition.allCases {
-            if let latest = car.latestMeasurement(for: position) {
-                currentMeasurements[position] = latest
+            if let tire = car.tires?.first(where: { $0.position == position }) {
+                let latestMeasurement = car.latestMeasurement(for: position)
+                currentTireData[position] = (tire, latestMeasurement)
             }
         }
         
-        // Create new measurements with rotated positions
-        for (oldPosition, measurement) in currentMeasurements {
-            if let newPosition = mapping[oldPosition] {
+        // Update tire positions
+        for (oldPosition, newPosition) in mapping {
+            if let tireData = currentTireData[oldPosition] {
+                // Update the tire's position
+                tireData.tire.position = newPosition
+                
+                // Create a new measurement at the new position
+                let treadDepth = tireData.measurement?.treadDepth ?? 8.0
                 let newMeasurement = TireMeasurement(
                     date: rotationDate,
-                    treadDepth: measurement.treadDepth,
+                    treadDepth: treadDepth,
                     position: newPosition,
+                    tire: tireData.tire,
                     notes: "Rotated from \(oldPosition.rawValue)",
                     mileage: Int(mileage)
                 )
@@ -273,14 +280,18 @@ struct TireWithArrow: View {
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireRotationEvent.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TireRotationEvent.self, configurations: config)
     
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)
     
-    // Add some measurements
+    // Add tires and measurements
     for position in TirePosition.allCases {
-        let measurement = TireMeasurement(date: Date(), treadDepth: 7.5, position: position)
+        let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: position)
+        tire.car = car
+        container.mainContext.insert(tire)
+        
+        let measurement = TireMeasurement(date: Date(), treadDepth: 7.5, position: position, tire: tire, notes: "", mileage: nil)
         measurement.car = car
         container.mainContext.insert(measurement)
     }

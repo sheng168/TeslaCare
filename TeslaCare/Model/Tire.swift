@@ -58,7 +58,18 @@ final class Tire {
     }
     
     var displayName: String {
-        "\(brand) \(modelName)"
+        let idString = persistentModelID.hashValue
+        let shortID = String(format: "%X", abs(idString)).prefix(3)
+        
+        if brand.isEmpty && modelName.isEmpty {
+            return "Tire #\(shortID)"
+        } else if brand.isEmpty {
+            return "\(modelName) #\(shortID)"
+        } else if modelName.isEmpty {
+            return "\(brand) #\(shortID)"
+        } else {
+            return "\(brand) \(modelName) #\(shortID)"
+        }
     }
     
     var ageInMonths: Int {

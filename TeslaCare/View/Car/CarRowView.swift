@@ -50,14 +50,18 @@ struct CarRowView: View {
 
 #Preview("Car with Good Health") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)
     
-    // Add measurements for good health
+    // Add tires and measurements for good health
     for position in TirePosition.allCases {
-        let measurement = TireMeasurement(date: Date(), treadDepth: 8.0, position: position)
+        let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: position)
+        tire.car = car
+        container.mainContext.insert(tire)
+        
+        let measurement = TireMeasurement(date: Date(), treadDepth: 8.0, position: position, tire: tire, notes: "", mileage: nil)
         measurement.car = car
         container.mainContext.insert(measurement)
     }
@@ -70,14 +74,18 @@ struct CarRowView: View {
 
 #Preview("Car with Warning Health") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "Family SUV", make: "Honda", model: "CR-V", year: 2020)
     container.mainContext.insert(car)
     
-    // Add measurements for warning health
+    // Add tires and measurements for warning health
     for position in TirePosition.allCases {
-        let measurement = TireMeasurement(date: Date(), treadDepth: 3.5, position: position)
+        let tire = Tire(brand: "Goodyear", modelName: "Assurance", size: "225/65R17", currentPosition: position)
+        tire.car = car
+        container.mainContext.insert(tire)
+        
+        let measurement = TireMeasurement(date: Date(), treadDepth: 3.5, position: position, tire: tire, notes: "", mileage: nil)
         measurement.car = car
         container.mainContext.insert(measurement)
     }
@@ -90,14 +98,18 @@ struct CarRowView: View {
 
 #Preview("Car with Danger Health") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "", make: "Toyota", model: "Camry", year: 2018)
     container.mainContext.insert(car)
     
-    // Add measurements for danger health
+    // Add tires and measurements for danger health
     for position in TirePosition.allCases {
-        let measurement = TireMeasurement(date: Date(), treadDepth: 1.5, position: position)
+        let tire = Tire(brand: "Bridgestone", modelName: "Turanza", size: "215/55R17", currentPosition: position)
+        tire.car = car
+        container.mainContext.insert(tire)
+        
+        let measurement = TireMeasurement(date: Date(), treadDepth: 1.5, position: position, tire: tire, notes: "", mileage: nil)
         measurement.car = car
         container.mainContext.insert(measurement)
     }

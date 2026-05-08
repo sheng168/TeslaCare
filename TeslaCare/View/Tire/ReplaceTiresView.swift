@@ -119,13 +119,29 @@ struct ReplaceTiresView: View {
         replacementEvent.car = car
         modelContext.insert(replacementEvent)
         
-        // Create measurements for replaced tires with new tread depth
+        // Create or update tires and measurements for replaced positions
         let depth = Double(treadDepth) ?? 10.0
         for position in selectedPositions {
+            // Find or create tire at this position
+            let tire: Tire
+            if let existingTire = car.tires?.first(where: { $0.position == position }) {
+                // Update existing tire with new info
+                tire = existingTire
+                tire.brand = brand
+                tire.modelName = modelName
+            } else {
+                // Create new tire
+                tire = Tire(brand: brand, modelName: modelName, size: "", currentPosition: position)
+                tire.car = car
+                modelContext.insert(tire)
+            }
+            
+            // Create measurement for the new tire
             let measurement = TireMeasurement(
                 date: replacementDate,
                 treadDepth: depth,
                 position: position,
+                tire: tire,
                 notes: "New tire - \(brand) \(modelName)".trimmingCharacters(in: .whitespaces),
                 mileage: Int(mileage)
             )
@@ -281,7 +297,7 @@ struct SelectableTire: View {
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireReplacementEvent.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TireReplacementEvent.self, configurations: config)
     
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)

@@ -42,6 +42,41 @@ struct AddMeasurementView: View {
                         }
                     }
                     
+                    // Display tire ID/info if a tire exists at the selected position
+                    if let tire = car.tires?.first(where: { $0.position == selectedPosition }) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label {
+                                Text(tire.displayName)
+                                    .fontWeight(.medium)
+                            } icon: {
+                                Image(systemName: "car.circle.fill")
+                                    .foregroundStyle(.blue)
+                            }
+                            
+                            if !tire.size.isEmpty {
+                                Text("Size: \(tire.size)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            if !tire.dotNumber.isEmpty {
+                                Text("DOT: \(tire.dotNumber)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(.secondary)
+                            Text("No tire registered at this position")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                 }
                 
@@ -155,10 +190,23 @@ struct AddMeasurementView: View {
     
     private func addMeasurement() {
         let mileageValue = includeMileage ? Int(mileage) : nil
+        
+        // Find or create a tire at the selected position
+        let tire: Tire
+        if let existingTire = car.tires?.first(where: { $0.position == selectedPosition }) {
+            tire = existingTire
+        } else {
+            // Create a placeholder tire if none exists at this position
+            tire = Tire(brand: "", modelName: "", size: "", currentPosition: selectedPosition)
+            tire.car = car
+            modelContext.insert(tire)
+        }
+        
         let measurement = TireMeasurement(
             date: date,
             treadDepth: treadDepth,
             position: selectedPosition,
+            tire: tire,
             notes: notes,
             mileage: mileageValue
         )
@@ -172,10 +220,17 @@ struct AddMeasurementView: View {
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
     
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)
+    
+    // Add some tires to the car
+    for position in TirePosition.allCases {
+        let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: position)
+        tire.car = car
+        container.mainContext.insert(tire)
+    }
     
     return AddMeasurementView(car: car)
         .modelContainer(container)

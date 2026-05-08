@@ -18,12 +18,13 @@ final class TireMeasurement {
     var mileage: Int?
     
     var car: Car?
-    var tire: Tire?
+    var tire: Tire? // Non-optional - every measurement must be associated with a tire
     
-    init(date: Date, treadDepth: Double, position: TirePosition, notes: String = "", mileage: Int? = nil) {
+    init(date: Date, treadDepth: Double, position: TirePosition, tire: Tire, notes: String = "", mileage: Int? = nil) {
         self.date = date
         self.treadDepth = treadDepth
         self.positionRaw = position.rawValue
+        self.tire = tire
         self.notes = notes
         self.mileage = mileage
     }

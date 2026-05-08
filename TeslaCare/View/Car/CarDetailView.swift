@@ -468,16 +468,26 @@ struct AirFilterChangeRow: View {
 #Preview {
     NavigationStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, TireRotationEvent.self, TireReplacementEvent.self, AirFilterChangeEvent.self, configurations: config)
+        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TireRotationEvent.self, TireReplacementEvent.self, AirFilterChangeEvent.self, configurations: config)
         
         let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
         container.mainContext.insert(car)
         
-        let measurement1 = TireMeasurement(date: Date(), treadDepth: 7.5, position: .frontLeft)
+        // Create tires
+        let tire1 = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: .frontLeft)
+        tire1.car = car
+        container.mainContext.insert(tire1)
+        
+        let tire2 = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: .frontRight)
+        tire2.car = car
+        container.mainContext.insert(tire2)
+        
+        // Create measurements with required tire parameter
+        let measurement1 = TireMeasurement(date: Date(), treadDepth: 7.5, position: .frontLeft, tire: tire1, notes: "", mileage: nil)
         measurement1.car = car
         container.mainContext.insert(measurement1)
         
-        let measurement2 = TireMeasurement(date: Date().addingTimeInterval(-86400), treadDepth: 3.2, position: .frontRight)
+        let measurement2 = TireMeasurement(date: Date().addingTimeInterval(-86400), treadDepth: 3.2, position: .frontRight, tire: tire2, notes: "", mileage: nil)
         measurement2.car = car
         container.mainContext.insert(measurement2)
         
