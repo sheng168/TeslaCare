@@ -13,6 +13,7 @@ struct TeslaCareApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Car.self,
+            Tire.self,
             TireMeasurement.self,
             TireRotationEvent.self,
             TireReplacementEvent.self,
@@ -29,7 +30,7 @@ struct TeslaCareApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
         }
         .modelContainer(sharedModelContainer)
     }
