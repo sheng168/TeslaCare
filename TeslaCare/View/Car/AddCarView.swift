@@ -16,6 +16,7 @@ struct AddCarView: View {
     @State private var make = "Tesla"
     @State private var model = ""
     @State private var year = Calendar.current.component(.year, from: Date())
+    @State private var mileageText = ""
     
     var body: some View {
         NavigationStack {
@@ -34,6 +35,9 @@ struct AddCarView: View {
                             Text(String(year)).tag(year)
                         }
                     }
+
+                    TextField("Mileage (optional)", text: $mileageText)
+                        .keyboardType(.numberPad)
                 }
                 
                 Section {
@@ -63,6 +67,7 @@ struct AddCarView: View {
     
     private func addCar() {
         let newCar = Car(name: name, make: make, model: model, year: year)
+        newCar.mileage = Int(mileageText)
         modelContext.insert(newCar)
         dismiss()
     }

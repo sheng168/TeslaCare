@@ -16,10 +16,20 @@ struct CarRowView: View {
             Text(car.displayName)
                 .font(.headline)
             
-            Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            
+            HStack(spacing: 8) {
+                Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                if let mileage = car.mileage {
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Text("\(mileage.formatted()) mi")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if let health = car.tireHealthPercentage {
                 HStack(spacing: 8) {
                     ProgressView(value: health, total: 100)

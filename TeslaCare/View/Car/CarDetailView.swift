@@ -34,7 +34,13 @@ struct CarDetailView: View {
                     Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    
+
+                    if let mileage = car.mileage {
+                        Text("\(mileage.formatted()) mi")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
                     if let health = car.tireHealthPercentage {
                         VStack(spacing: 8) {
                             Text("Overall Tire Health")

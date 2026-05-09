@@ -23,41 +23,37 @@ struct TireGridView: View {
                 TireCardView(
                     position: .frontLeft,
                     measurement: car.latestMeasurement(for: .frontLeft),
-                    tire: getTire(for: .frontLeft)
-                ) {
-                    selectedPosition = .frontLeft
-                }
-                
+                    tire: getTire(for: .frontLeft),
+                    pressureBar: car.tpmsPressure(for: .frontLeft)
+                ) { selectedPosition = .frontLeft }
+
                 TireCardView(
                     position: .frontRight,
                     measurement: car.latestMeasurement(for: .frontRight),
-                    tire: getTire(for: .frontRight)
-                ) {
-                    selectedPosition = .frontRight
-                }
+                    tire: getTire(for: .frontRight),
+                    pressureBar: car.tpmsPressure(for: .frontRight)
+                ) { selectedPosition = .frontRight }
             }
-            
+
             Image(systemName: "car.top.door.front.left.and.front.right.open")
                 .font(.system(size: 40))
                 .foregroundStyle(.secondary)
-            
+
             // Rear tires
             HStack(spacing: 20) {
                 TireCardView(
                     position: .rearLeft,
                     measurement: car.latestMeasurement(for: .rearLeft),
-                    tire: getTire(for: .rearLeft)
-                ) {
-                    selectedPosition = .rearLeft
-                }
-                
+                    tire: getTire(for: .rearLeft),
+                    pressureBar: car.tpmsPressure(for: .rearLeft)
+                ) { selectedPosition = .rearLeft }
+
                 TireCardView(
                     position: .rearRight,
                     measurement: car.latestMeasurement(for: .rearRight),
-                    tire: getTire(for: .rearRight)
-                ) {
-                    selectedPosition = .rearRight
-                }
+                    tire: getTire(for: .rearRight),
+                    pressureBar: car.tpmsPressure(for: .rearRight)
+                ) { selectedPosition = .rearRight }
             }
         }
     }
@@ -73,7 +69,17 @@ struct TireCardView: View {
     let position: TirePosition
     let measurement: TireMeasurement?
     let tire: Tire?
+    var pressureBar: Double? = nil
     let onTap: () -> Void
+
+    private var pressurePSI: Double? { pressureBar.map { $0 * 14.504 } }
+
+    private var pressureColor: Color {
+        guard let psi = pressurePSI else { return .secondary }
+        if psi < 28 { return .red }
+        if psi < 36 { return .orange }
+        return .primary
+    }
     
     @State private var isPressed = false
     
@@ -116,7 +122,7 @@ struct TireCardView: View {
                         .fontWeight(.bold)
                         .foregroundStyle(treadColor(for: measurement))
                         .frame(height: 24)
-                    
+
                     Group {
                         if measurement.isDanger {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -137,12 +143,19 @@ struct TireCardView: View {
                         Text("No data")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        
+
                         Image(systemName: "plus.circle.fill")
                             .font(.caption2)
                             .foregroundStyle(.blue)
                     }
                     .frame(height: 40)
+                }
+
+                if let psi = pressurePSI {
+                    Text(String(format: "%.0f PSI", psi))
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(pressureColor)
                 }
             }
             .frame(maxWidth: .infinity)

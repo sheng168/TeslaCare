@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Combine
 import TeslaSwift
 import AuthenticationServices
@@ -183,6 +184,7 @@ class TeslaAuthManager: ObservableObject {
 struct TeslaAuthView: View {
     @StateObject private var authManager = TeslaAuthManager()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var showingWebAuth = false
     // Keep a strong reference so the presentation context provider isn't deallocated
     // while the ASWebAuthenticationSession is in progress
@@ -205,6 +207,11 @@ struct TeslaAuthView: View {
                     Button("Close") {
                         dismiss()
                     }
+                }
+            }
+            .onChange(of: authManager.isLoading) { _, isLoading in
+                if !isLoading && authManager.isAuthenticated && !authManager.vehicles.isEmpty {
+                    syncCarsFromTesla()
                 }
             }
         }
@@ -334,6 +341,44 @@ struct TeslaAuthView: View {
         }
     }
     
+    private func syncCarsFromTesla() {
+        for vehicle in authManager.vehicles {
+            guard let vin = vehicle.vin else { continue }
+
+            let predicate = #Predicate<Car> { $0.vin == vin }
+            let existing = (try? modelContext.fetch(FetchDescriptor(predicate: predicate)))?.first
+
+            let vehicleState = authManager.vehicleData[vin]?.vehicleState
+
+            let car: Car
+            if let existing {
+                car = existing
+            } else {
+                car = Car(name: "", make: "Tesla", model: "", year: 0)
+                car.vin = vin
+                modelContext.insert(car)
+            }
+
+            if let displayName = vehicle.displayName, !displayName.isEmpty {
+                car.name = displayName
+            }
+            car.make = "Tesla"
+            if let model = vinModel(vin) { car.model = model }
+            if let year = vinYear(vin) { car.year = year }
+
+            if let odometer = vehicleState?.odometer {
+                car.mileage = Int(odometer)
+            }
+            if let state = vehicleState {
+                car.tpmsFrontLeft  = state.tpms_pressure_fl
+                car.tpmsFrontRight = state.tpms_pressure_fr
+                car.tpmsRearLeft   = state.tpms_pressure_rl
+                car.tpmsRearRight  = state.tpms_pressure_rr
+                if state.tpms_pressure_fl != nil { car.tpmsUpdatedAt = Date() }
+            }
+        }
+    }
+
     private func vinYear(_ vin: String) -> Int? {
         guard vin.count >= 10 else { return nil }
         let yearChar = vin[vin.index(vin.startIndex, offsetBy: 9)]
