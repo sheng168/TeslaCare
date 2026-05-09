@@ -30,31 +30,95 @@ struct CarRowView: View {
                 }
             }
 
-            if let health = car.tireHealthPercentage {
-                HStack(spacing: 8) {
-                    ProgressView(value: health, total: 100)
-                        .tint(healthColor(for: health))
-                        .frame(maxWidth: 150)
-                    
-                    Text("\(Int(health))%")
-                        .font(.caption)
-                        .foregroundStyle(healthColor(for: health))
-                }
-            } else {
-                Text("No measurements")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            tireDataView
         }
         .padding(.vertical, 4)
     }
     
+    @ViewBuilder
+    private var tireDataView: some View {
+        let hasTpms = TirePosition.allCases.contains { car.tpmsPressure(for: $0) != nil }
+        let hasTread = car.tireHealthPercentage != nil
+
+        if hasTpms || hasTread {
+            VStack(alignment: .leading, spacing: 6) {
+                Grid(horizontalSpacing: 16, verticalSpacing: 4) {
+                    GridRow {
+                        tireCellView(for: .frontLeft)
+                        tireCellView(for: .frontRight)
+                    }
+                    GridRow {
+                        tireCellView(for: .rearLeft)
+                        tireCellView(for: .rearRight)
+                    }
+                }
+
+                if let health = car.tireHealthPercentage {
+                    HStack(spacing: 8) {
+                        ProgressView(value: health, total: 100)
+                            .tint(healthColor(for: health))
+                            .frame(maxWidth: 150)
+                        Text("\(Int(health))%")
+                            .font(.caption)
+                            .foregroundStyle(healthColor(for: health))
+                    }
+                }
+            }
+        } else {
+            Text("No measurements")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func tireCellView(for position: TirePosition) -> some View {
+        let psi = car.tpmsPressure(for: position)
+        let tread = car.latestMeasurement(for: position)?.treadDepth
+
+        return HStack(spacing: 4) {
+            Text(position.abbreviation)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if let psi {
+                Text(String(format: "%.0f psi", psi * 14.504))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if psi != nil, tread != nil {
+                Text("·")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            if let tread {
+                Text(String(format: "%.1f/32\"", tread))
+                    .font(.caption2)
+                    .foregroundStyle(treadColor(for: tread))
+            }
+
+            if psi == nil, tread == nil {
+                Text("—")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func healthColor(for percentage: Double) -> Color {
         switch percentage {
         case 50...100: return .green
         case 25..<50: return .orange
         default: return .red
         }
+    }
+
+    private func treadColor(for depth: Double) -> Color {
+        if depth <= 2.0 { return .red }
+        if depth <= 4.0 { return .orange }
+        return .green
     }
 }
 
@@ -64,7 +128,13 @@ struct CarRowView: View {
     
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)
-    
+
+    car.tpmsFrontLeft = 42.5
+    car.tpmsFrontRight = 42.5
+    car.tpmsRearLeft = 40.0
+    car.tpmsRearRight = 40.5
+    car.tpmsUpdatedAt = Date()
+
     // Add tires and measurements for good health
     for position in TirePosition.allCases {
         let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: position)

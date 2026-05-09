@@ -36,7 +36,7 @@ struct TireListView: View {
                     }
                 }
             }
-            .navigationTitle("All Tires")
+            .navigationTitle("All \(allTires.count) Tires")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()

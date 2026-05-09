@@ -14,6 +14,15 @@ enum TirePosition: String, Codable, CaseIterable {
     case rearLeft = "Rear Left"
     case rearRight = "Rear Right"
     
+    var abbreviation: String {
+        switch self {
+        case .frontLeft:  return "FL"
+        case .frontRight: return "FR"
+        case .rearLeft:   return "RL"
+        case .rearRight:  return "RR"
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .frontLeft: return "arrow.up.left"

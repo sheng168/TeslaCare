@@ -25,7 +25,7 @@ struct ContentView: View {
                 }
                 .onDelete(perform: deleteCars)
             }
-            .navigationTitle("My Cars")
+            .navigationTitle("\(cars.count) Cars")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
