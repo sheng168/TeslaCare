@@ -72,6 +72,12 @@ struct CarDetailView: View {
                 }
                 .padding()
                 
+                // TPMS Summary
+                if car.tpmsFrontLeft != nil {
+                    TPMSSummaryView(car: car)
+                        .padding(.horizontal)
+                }
+
                 // Tire Grid
                 TireGridView(car: car, selectedPosition: $selectedPosition)
                     .padding(.horizontal)
@@ -222,6 +228,69 @@ struct CarDetailView: View {
         case 25..<50: return .orange
         default: return .red
         }
+    }
+}
+
+// MARK: - TPMS Summary
+struct TPMSSummaryView: View {
+    let car: Car
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Tire Pressure", systemImage: "gauge.with.needle")
+                    .font(.headline)
+                Spacer()
+                if let updated = car.tpmsUpdatedAt {
+                    Text(updated, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 0) {
+                pressureCell("Front Left",  bar: car.tpmsFrontLeft)
+                Divider()
+                pressureCell("Front Right", bar: car.tpmsFrontRight)
+                Divider()
+                pressureCell("Rear Left",   bar: car.tpmsRearLeft)
+                Divider()
+                pressureCell("Rear Right",  bar: car.tpmsRearRight)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.08), radius: 4)
+    }
+
+    @ViewBuilder
+    private func pressureCell(_ label: String, bar: Double?) -> some View {
+        let psi = bar.map { $0 * 14.504 }
+        let color: Color = {
+            guard let psi else { return .secondary }
+            if psi < 28 { return .red }
+            if psi < 36 { return .orange }
+            return .primary
+        }()
+        VStack(spacing: 4) {
+            Text(psi.map { String(format: "%.0f", $0) } ?? "--")
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+            Text("PSI")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
     }
 }
 

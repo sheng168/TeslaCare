@@ -310,6 +310,16 @@ struct TeslaAuthView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
+                                let vs = extended?.vehicleState
+                                if vs?.tpms_pressure_fl != nil {
+                                    HStack(spacing: 10) {
+                                        tpmsBadge("FL", bar: vs?.tpms_pressure_fl)
+                                        tpmsBadge("FR", bar: vs?.tpms_pressure_fr)
+                                        tpmsBadge("RL", bar: vs?.tpms_pressure_rl)
+                                        tpmsBadge("RR", bar: vs?.tpms_pressure_rr)
+                                    }
+                                    .padding(.top, 2)
+                                }
                                 Text("VIN: \(vin)")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
@@ -406,6 +416,26 @@ struct TeslaAuthView: View {
 
     private func formatTrim(_ badge: String) -> String {
         badge.replacingOccurrences(of: "_", with: " ").uppercased()
+    }
+
+    @ViewBuilder
+    private func tpmsBadge(_ label: String, bar: Double?) -> some View {
+        let psi = bar.map { $0 * 14.504 }
+        let color: Color = {
+            guard let psi else { return .secondary }
+            if psi < 28 { return .red }
+            if psi < 36 { return .orange }
+            return .green
+        }()
+        VStack(spacing: 1) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(psi.map { String(format: "%.0f", $0) } ?? "--")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+        }
     }
 
     private func startAuthentication() {
