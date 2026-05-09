@@ -9,27 +9,33 @@ import SwiftUI
 import SwiftData
 
 struct MainTabView: View {
+    @AppStorage("selectedTab") private var selectedTab = 0
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             ContentView()
                 .tabItem {
                     Label("Cars", systemImage: "car.fill")
                 }
+                .tag(0)
             
             TireListView()
                 .tabItem {
                     Label("Tires", systemImage: "circle.dotted")
                 }
+                .tag(1)
             
             MaintenanceView()
                 .tabItem {
                     Label("Maintenance", systemImage: "wrench.and.screwdriver.fill")
                 }
+                .tag(2)
             
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
+                .tag(3)
         }
     }
 }
