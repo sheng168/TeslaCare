@@ -377,14 +377,20 @@ struct TeslaAuthView: View {
             if let year = vinYear(vin) { car.year = year }
 
             if let odometer = vehicleState?.odometer {
-                car.mileage = Int(odometer)
+                let reading = MileageReading(date: Date(), mileage: Int(odometer), source: "tesla_api")
+                reading.car = car
+                modelContext.insert(reading)
             }
-            if let state = vehicleState {
-                car.tpmsFrontLeft  = state.tpms_pressure_fl
-                car.tpmsFrontRight = state.tpms_pressure_fr
-                car.tpmsRearLeft   = state.tpms_pressure_rl
-                car.tpmsRearRight  = state.tpms_pressure_rr
-                if state.tpms_pressure_fl != nil { car.tpmsUpdatedAt = Date() }
+            if let state = vehicleState, state.tpms_pressure_fl != nil {
+                let reading = TPMSReading(
+                    date: Date(),
+                    frontLeft: state.tpms_pressure_fl,
+                    frontRight: state.tpms_pressure_fr,
+                    rearLeft: state.tpms_pressure_rl,
+                    rearRight: state.tpms_pressure_rr
+                )
+                reading.car = car
+                modelContext.insert(reading)
             }
         }
     }

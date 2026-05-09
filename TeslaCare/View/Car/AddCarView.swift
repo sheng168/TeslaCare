@@ -67,8 +67,12 @@ struct AddCarView: View {
     
     private func addCar() {
         let newCar = Car(name: name, make: make, model: model, year: year)
-        newCar.mileage = Int(mileageText)
         modelContext.insert(newCar)
+        if let miles = Int(mileageText) {
+            let reading = MileageReading(date: Date(), mileage: miles, source: "manual")
+            reading.car = newCar
+            modelContext.insert(reading)
+        }
         dismiss()
     }
 }

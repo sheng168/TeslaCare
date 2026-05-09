@@ -25,11 +25,11 @@ struct MainTabView: View {
                 }
                 .tag(1)
             
-            MaintenanceView()
-                .tabItem {
-                    Label("Maintenance", systemImage: "wrench.and.screwdriver.fill")
-                }
-                .tag(2)
+//            MaintenanceView()
+//                .tabItem {
+//                    Label("Maintenance", systemImage: "wrench.and.screwdriver.fill")
+//                }
+//                .tag(2)
             
             SettingsView()
                 .tabItem {

@@ -17,13 +17,15 @@ final class Car {
     var year: Int
     var dateAdded: Date
     var vin: String?
-    var mileage: Int?
-    var tpmsFrontLeft: Double?
-    var tpmsFrontRight: Double?
-    var tpmsRearLeft: Double?
-    var tpmsRearRight: Double?
-    var tpmsUpdatedAt: Date?
-    
+
+    @Relationship(deleteRule: .cascade, inverse: \MileageReading.car)
+    var mileageReadings: [MileageReading]?
+
+    var mileage: Int? { mileageReadings?.max(by: { $0.date < $1.date })?.mileage }
+
+    @Relationship(deleteRule: .cascade, inverse: \TPMSReading.car)
+    var tpmsReadings: [TPMSReading]?
+
     @Relationship(deleteRule: .cascade, inverse: \TireMeasurement.car)
     var measurements: [TireMeasurement]?
     
@@ -47,13 +49,14 @@ final class Car {
         self.dateAdded = dateAdded
     }
     
+    var latestTPMSReading: TPMSReading? {
+        tpmsReadings?.sorted { $0.date > $1.date }.first
+    }
+
+    var tpmsUpdatedAt: Date? { latestTPMSReading?.date }
+
     func tpmsPressure(for position: TirePosition) -> Double? {
-        switch position {
-        case .frontLeft:  return tpmsFrontLeft
-        case .frontRight: return tpmsFrontRight
-        case .rearLeft:   return tpmsRearLeft
-        case .rearRight:  return tpmsRearRight
-        }
+        latestTPMSReading?.pressure(for: position)
     }
 
     var displayName: String {

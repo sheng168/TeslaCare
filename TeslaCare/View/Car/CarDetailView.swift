@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Charts
 
 struct CarDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -73,8 +74,10 @@ struct CarDetailView: View {
                 .padding()
                 
                 // TPMS Summary
-                if car.tpmsFrontLeft != nil {
+                if car.latestTPMSReading != nil {
                     TPMSSummaryView(car: car)
+                        .padding(.horizontal)
+                    TPMSHistoryChartView(car: car)
                         .padding(.horizontal)
                 }
 
@@ -249,13 +252,14 @@ struct TPMSSummaryView: View {
             }
 
             HStack(spacing: 0) {
-                pressureCell("Front Left",  bar: car.tpmsFrontLeft)
+                let r = car.latestTPMSReading
+                pressureCell("Front Left",  bar: r?.frontLeft)
                 Divider()
-                pressureCell("Front Right", bar: car.tpmsFrontRight)
+                pressureCell("Front Right", bar: r?.frontRight)
                 Divider()
-                pressureCell("Rear Left",   bar: car.tpmsRearLeft)
+                pressureCell("Rear Left",   bar: r?.rearLeft)
                 Divider()
-                pressureCell("Rear Right",  bar: car.tpmsRearRight)
+                pressureCell("Rear Right",  bar: r?.rearRight)
             }
             .fixedSize(horizontal: false, vertical: true)
             .background(Color(.secondarySystemBackground))
@@ -291,6 +295,91 @@ struct TPMSSummaryView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
+    }
+}
+
+// MARK: - TPMS History Chart
+
+struct TPMSHistoryChartView: View {
+    let car: Car
+
+    private struct DataPoint: Identifiable {
+        let id = UUID()
+        let date: Date
+        let psi: Double
+        let label: String
+    }
+
+    private var dataPoints: [DataPoint] {
+        let readings = (car.tpmsReadings ?? []).sorted { $0.date < $1.date }
+        return readings.flatMap { reading in
+            TirePosition.allCases.compactMap { position in
+                guard let bar = reading.pressure(for: position) else { return nil }
+                return DataPoint(date: reading.date, psi: bar * 14.504, label: position.abbreviation)
+            }
+        }
+    }
+
+    private var yDomain: ClosedRange<Double> {
+        let values = dataPoints.map(\.psi)
+        let lo = (values.min() ?? 30) - 3
+        let hi = (values.max() ?? 50) + 3
+        return lo...hi
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Pressure History")
+                .font(.headline)
+
+            if dataPoints.isEmpty {
+                Text("Sync your Tesla to build pressure history")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 80)
+                    .multilineTextAlignment(.center)
+            } else {
+                Chart(dataPoints) { point in
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("PSI", point.psi)
+                    )
+                    .foregroundStyle(by: .value("Tire", point.label))
+                    .interpolationMethod(.catmullRom)
+
+                    PointMark(
+                        x: .value("Date", point.date),
+                        y: .value("PSI", point.psi)
+                    )
+                    .foregroundStyle(by: .value("Tire", point.label))
+                    .symbolSize(25)
+                }
+                .chartYScale(domain: yDomain)
+                .chartYAxis {
+                    AxisMarks(values: .stride(by: 5)) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let psi = value.as(Double.self) {
+                                Text("\(Int(psi))")
+                                    .font(.caption2)
+                            }
+                        }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    }
+                }
+                .chartLegend(position: .bottom, alignment: .leading)
+                .frame(height: 200)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.08), radius: 4)
     }
 }
 
@@ -621,6 +710,47 @@ struct AirFilterChangeRow: View {
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
+}
+
+#Preview("TPMS History Chart — With Data") {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Car.self, TPMSReading.self, configurations: config)
+
+    let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
+    container.mainContext.insert(car)
+
+    // Simulate 6 syncs over 6 weeks with realistic pressure variation (values in bar)
+    let syncDates: [TimeInterval] = [-42, -35, -28, -21, -14, -7, 0].map { $0 * 86400 }
+    let flPsi: [Double] = [42, 41, 40, 38, 39, 41, 42]
+    let frPsi: [Double] = [42, 41, 41, 39, 40, 41, 42]
+    let rlPsi: [Double] = [40, 40, 39, 37, 38, 39, 40]
+    let rrPsi: [Double] = [40, 39, 38, 36, 37, 39, 40]
+
+    for i in syncDates.indices {
+        let reading = TPMSReading(
+            date: Date(timeIntervalSinceNow: syncDates[i]),
+            frontLeft:  flPsi[i] / 14.504,
+            frontRight: frPsi[i] / 14.504,
+            rearLeft:   rlPsi[i] / 14.504,
+            rearRight:  rrPsi[i] / 14.504
+        )
+        reading.car = car
+        container.mainContext.insert(reading)
+    }
+
+    return TPMSHistoryChartView(car: car)
+        .padding()
+        .modelContainer(container)
+}
+
+#Preview("TPMS History Chart — Empty") {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Car.self, TPMSReading.self, configurations: config)
+    let car = Car(name: "New Car", make: "Tesla", model: "Model Y", year: 2024)
+    container.mainContext.insert(car)
+    return TPMSHistoryChartView(car: car)
+        .padding()
+        .modelContainer(container)
 }
 
 #Preview {

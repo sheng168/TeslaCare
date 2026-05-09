@@ -20,8 +20,17 @@ struct ReplaceTiresView: View {
     @State private var brand: String = ""
     @State private var modelName: String = ""
     @State private var cost: String = ""
-    @State private var treadDepth: String = "10.0"
+    @State private var treadDepth: String = "9.0"
     @State private var notes: String = ""
+    @State private var selectedVariantId: String? = nil
+
+    private var specVariants: [TireVariant] {
+        TireSpecsLoader.variants(for: car)
+    }
+
+    private var selectedVariant: TireVariant? {
+        specVariants.first { $0.id == selectedVariantId }
+    }
     
     var body: some View {
         NavigationStack {
@@ -62,6 +71,8 @@ struct ReplaceTiresView: View {
                     Text("Tire Information")
                 }
                 
+                specsSection
+
                 Section {
                     HStack {
                         Text("Initial Tread Depth")
@@ -88,6 +99,17 @@ struct ReplaceTiresView: View {
             }
             .navigationTitle("Replace Tires")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if specVariants.count == 1 {
+                    selectedVariantId = specVariants[0].id
+                    treadDepth = String(specVariants[0].defaultNewTreadDepth)
+                }
+            }
+            .onChange(of: selectedVariantId) { _, newId in
+                if let variant = specVariants.first(where: { $0.id == newId }) {
+                    treadDepth = String(variant.defaultNewTreadDepth)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -105,6 +127,76 @@ struct ReplaceTiresView: View {
         }
     }
     
+    @ViewBuilder
+    private var specsSection: some View {
+        if !specVariants.isEmpty {
+            Section {
+                Picker("Configuration", selection: $selectedVariantId) {
+                    Text("Select...").tag(nil as String?)
+                    ForEach(specVariants) { variant in
+                        Text(variant.name).tag(variant.id as String?)
+                    }
+                }
+
+                if let variant = selectedVariant {
+                    LabeledContent("Recommended PSI") {
+                        Text(psiLabel(for: variant))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if !variant.commonOemTires.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Common OEM Tires")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(variant.commonOemTires, id: \.self) { tire in
+                                oemTireRow(tire)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Specifications")
+            } footer: {
+                Text("Select your trim / wheel configuration to apply the correct defaults")
+            }
+        }
+    }
+
+    private func psiLabel(for variant: TireVariant) -> String {
+        let psi = variant.recommendedColdPsi
+        if variant.staggered {
+            return "F \(Int(psi.front)) / R \(Int(psi.rear)) psi (cold)"
+        }
+        return "\(Int(psi.front)) psi (cold)"
+    }
+
+    private func oemTireRow(_ tire: String) -> some View {
+        Button {
+            applyOemTire(tire)
+        } label: {
+            HStack {
+                Text(tire)
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("Use")
+                    .font(.caption2)
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func applyOemTire(_ tire: String) {
+        let stripped = tire.replacingOccurrences(of: #"\s*\(.*\)"#, with: "", options: .regularExpression)
+        let parts = stripped.split(separator: " ", maxSplits: 1)
+        if parts.count == 2 {
+            brand = String(parts[0])
+            modelName = String(parts[1])
+        }
+    }
+
     private func replaceTires() {
         // Create replacement event
         let replacementEvent = TireReplacementEvent(

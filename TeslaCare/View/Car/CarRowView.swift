@@ -143,16 +143,14 @@ struct CarRowView: View {
 
 #Preview("Car with Good Health") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
-    
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TPMSReading.self, configurations: config)
+
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)
 
-    car.tpmsFrontLeft = 42.5
-    car.tpmsFrontRight = 42.5
-    car.tpmsRearLeft = 40.0
-    car.tpmsRearRight = 40.5
-    car.tpmsUpdatedAt = Date()
+    let reading = TPMSReading(date: Date(), frontLeft: 2.93, frontRight: 2.93, rearLeft: 2.76, rearRight: 2.79)
+    reading.car = car
+    container.mainContext.insert(reading)
 
     // Add tires and measurements for good health
     for position in TirePosition.allCases {

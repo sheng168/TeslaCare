@@ -1,0 +1,216 @@
+{
+  "version": "1.0",
+  "notes": "Cold PSI = measured after 3+ hrs parked. -1 PSI per 10°F drop in ambient temp. Source: Tesla owner/service manuals.",
+  "globalThresholds": {
+    "treadWarningDepth": 4.0,
+    "treadReplacementDepth": 2.0,
+    "psiLowWarningOffset": 3,
+    "psiHighWarningOffset": 4,
+    "psiCriticalLowOffset": 7
+  },
+  "models": [
+    {
+      "make": "Tesla",
+      "model": "Model 3",
+      "variants": [
+        {
+          "id": "model3-18",
+          "name": "Standard Range / Long Range — 18\"",
+          "wheelSizes": ["18"],
+          "tireSizes": ["225/45R18", "235/45R18"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 42, "rear": 42 },
+          "psiWarning": { "low": 39, "high": 46, "criticalLow": 35 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4 (MO)",
+            "Goodyear Eagle F1 Asymmetric 5",
+            "Pirelli P Zero (TO)"
+          ]
+        },
+        {
+          "id": "model3-19",
+          "name": "Long Range — 19\" Überturbine",
+          "wheelSizes": ["19"],
+          "tireSizes": ["235/40R19"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 42, "rear": 42 },
+          "psiWarning": { "low": 39, "high": 46, "criticalLow": 35 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4 (MO)",
+            "Goodyear Eagle F1 Asymmetric 5"
+          ]
+        },
+        {
+          "id": "model3-20-performance",
+          "name": "Performance — 20\" Überturbine",
+          "wheelSizes": ["20"],
+          "tireSizes": ["235/35R20"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 42, "rear": 42 },
+          "psiWarning": { "low": 39, "high": 46, "criticalLow": 35 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4S (MO)",
+            "Pirelli P Zero (TO)"
+          ]
+        }
+      ]
+    },
+    {
+      "make": "Tesla",
+      "model": "Model Y",
+      "variants": [
+        {
+          "id": "modely-19",
+          "name": "RWD / Long Range — 19\" Gemini",
+          "wheelSizes": ["19"],
+          "tireSizes": ["255/45R19"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 42, "rear": 42 },
+          "psiWarning": { "low": 39, "high": 46, "criticalLow": 35 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Primacy MXM4 (TO)",
+            "Goodyear Eagle F1 Asymmetric 5",
+            "Continental CrossContact LX Sport"
+          ]
+        },
+        {
+          "id": "modely-20",
+          "name": "Long Range AWD / Performance — 20\" Induction",
+          "wheelSizes": ["20"],
+          "tireSizes": ["255/40R20"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 44, "rear": 44 },
+          "psiWarning": { "low": 41, "high": 48, "criticalLow": 37 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4 (TO)",
+            "Pirelli P Zero (TO)",
+            "Goodyear Eagle F1 Asymmetric 5"
+          ]
+        },
+        {
+          "id": "modely-21-performance",
+          "name": "Performance — 21\" Überturbine",
+          "wheelSizes": ["21"],
+          "tireSizes": ["255/35R21"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 44, "rear": 44 },
+          "psiWarning": { "low": 41, "high": 48, "criticalLow": 37 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4S (TO)",
+            "Pirelli P Zero (TO)"
+          ]
+        }
+      ]
+    },
+    {
+      "make": "Tesla",
+      "model": "Model S",
+      "variants": [
+        {
+          "id": "models-19",
+          "name": "Long Range — 19\" Tempest / Slipstream",
+          "wheelSizes": ["19"],
+          "tireSizes": ["245/45R19"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 42, "rear": 42 },
+          "psiWarning": { "low": 39, "high": 46, "criticalLow": 35 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4S",
+            "Continental ContiSportContact 5P"
+          ]
+        },
+        {
+          "id": "models-21",
+          "name": "Long Range / Plaid — 21\" Arachnid (staggered)",
+          "wheelSizes": ["21"],
+          "tireSizes": ["245/35R21", "265/35R21"],
+          "staggered": true,
+          "staggeredNote": "245/35R21 front, 265/35R21 rear",
+          "recommendedColdPsi": { "front": 40, "rear": 40 },
+          "psiWarning": { "low": 37, "high": 44, "criticalLow": 33 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4S",
+            "Pirelli P Zero"
+          ]
+        }
+      ]
+    },
+    {
+      "make": "Tesla",
+      "model": "Model X",
+      "variants": [
+        {
+          "id": "modelx-20-cyberstream",
+          "name": "Long Range — 20\" Cyberstream (staggered)",
+          "wheelSizes": ["20"],
+          "tireSizes": ["265/45R20", "275/45R20"],
+          "staggered": true,
+          "staggeredNote": "265/45R20 front, 275/45R20 rear",
+          "recommendedColdPsi": { "front": 40, "rear": 40 },
+          "psiWarning": { "low": 37, "high": 44, "criticalLow": 33 },
+          "defaultNewTreadDepth": 9.0,
+          "commonOemTires": [
+            "Continental CrossContact LX Sport",
+            "Pirelli Scorpion Zero All Season"
+          ]
+        },
+        {
+          "id": "modelx-20-continental",
+          "name": "Long Range — 20\" Continental 275/55R20",
+          "wheelSizes": ["20"],
+          "tireSizes": ["275/55R20"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 45, "rear": 45 },
+          "psiWarning": { "low": 42, "high": 49, "criticalLow": 38 },
+          "defaultNewTreadDepth": 9.0,
+          "commonOemTires": [
+            "Continental CrossContact LX20"
+          ]
+        },
+        {
+          "id": "modelx-22-plaid",
+          "name": "Plaid — 22\" Turbine (staggered)",
+          "wheelSizes": ["22"],
+          "tireSizes": ["265/35R22", "285/35R22"],
+          "staggered": true,
+          "staggeredNote": "265/35R22 front, 285/35R22 rear",
+          "recommendedColdPsi": { "front": 42, "rear": 42 },
+          "psiWarning": { "low": 39, "high": 46, "criticalLow": 35 },
+          "defaultNewTreadDepth": 10.0,
+          "commonOemTires": [
+            "Michelin Pilot Sport 4S",
+            "Pirelli P Zero"
+          ]
+        }
+      ]
+    },
+    {
+      "make": "Tesla",
+      "model": "Cybertruck",
+      "variants": [
+        {
+          "id": "cybertruck-20-at",
+          "name": "All-Terrain — 20\" OEM",
+          "wheelSizes": ["20"],
+          "tireSizes": ["285/65R20"],
+          "staggered": false,
+          "recommendedColdPsi": { "front": 50, "rear": 50 },
+          "psiWarning": { "low": 45, "high": 55, "criticalLow": 40 },
+          "defaultNewTreadDepth": 12.0,
+          "notes": "Increase to 53-55 PSI when towing or carrying heavy loads up to GVWR.",
+          "commonOemTires": [
+            "Goodyear Wrangler All-Terrain Adventure (EV)"
+          ]
+        }
+      ]
+    }
+  ]
+}
