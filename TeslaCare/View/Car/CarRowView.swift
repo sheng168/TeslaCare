@@ -63,6 +63,12 @@ struct CarRowView: View {
                             .foregroundStyle(healthColor(for: health))
                     }
                 }
+
+                if let updated = lastUpdatedDate {
+                    Text("Updated \(updated, format: .relative(presentation: .named))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
         } else {
             Text("No measurements")
@@ -105,6 +111,19 @@ struct CarRowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var lastUpdatedDate: Date? {
+        let tpmsDate = car.tpmsUpdatedAt
+        let treadDate = TirePosition.allCases
+            .compactMap { car.latestMeasurement(for: $0)?.date }
+            .max()
+        switch (tpmsDate, treadDate) {
+        case let (t?, m?): return t > m ? t : m
+        case let (t?, nil): return t
+        case let (nil, m?): return m
+        default: return nil
+        }
     }
 
     private func healthColor(for percentage: Double) -> Color {
