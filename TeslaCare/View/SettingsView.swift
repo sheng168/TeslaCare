@@ -7,7 +7,8 @@
 
 import SwiftUI
 import SwiftData
-internal import UniformTypeIdentifiers
+import UniformTypeIdentifiers
+import TeslaSwift
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,6 +16,9 @@ struct SettingsView: View {
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("replacementThreshold") private var replacementThreshold = 2.0
     @AppStorage("warningThreshold") private var warningThreshold = 4.0
+    @AppStorage("teslaAccessToken") private var teslaAccessToken: String?
+    
+    @State private var showingTeslaAuth = false
     
     var body: some View {
         NavigationStack {
@@ -23,6 +27,22 @@ struct SettingsView: View {
                     Picker("Tread Depth Unit", selection: $measurementUnit) {
                         Text("32nds of an inch").tag("imperial")
                         Text("Millimeters").tag("metric")
+                    }
+                }
+                
+                Section("Tesla Integration") {
+                    Button {
+                        showingTeslaAuth = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "bolt.car.fill")
+                            Text("Tesla Account")
+                            Spacer()
+                            if teslaAccessToken != nil {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            }
+                        }
                     }
                 }
                 
@@ -107,6 +127,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .sheet(isPresented: $showingTeslaAuth) {
+                TeslaAuthView()
+            }
         }
     }
     

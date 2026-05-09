@@ -1,0 +1,488 @@
+//
+//  TeslaAuthView.swift
+//  TeslaCare
+//
+//  Created by Jin on 5/8/26.
+//
+
+import SwiftUI
+import Combine
+import TeslaSwift
+import AuthenticationServices
+
+@MainActor
+class TeslaAuthManager: ObservableObject {
+    @Published var isAuthenticated = false
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    @Published var vehicles: [Vehicle] = []
+    @Published var vehicleData: [String: VehicleExtended] = [:]
+    
+    private var api: TeslaSwift?
+    private let clientID = "b7b3546b95f7-453c-ac19-5efbd8d3bd35"
+    private let clientSecret = "ta-secret.6zpdiNudRJvDZ-P_"
+    private let redirectURI = "teslacare://fob.jsy.us/login"
+    
+    // Store tokens securely in Keychain in production
+    @AppStorage("teslaAccessToken") private var storedAccessToken: String?
+    @AppStorage("teslaRefreshToken") private var storedRefreshToken: String?
+    @AppStorage("teslaTokenExpiry") private var storedTokenExpiry: Double?
+    
+    init() {
+        setupAPI()
+        checkExistingAuth()
+    }
+    
+    private func setupAPI() {
+        api = TeslaSwift(teslaAPI: .fleetAPI(
+            region: .northAmericaAsiaPacific,
+            clientID: clientID,
+            clientSecret: clientSecret,
+            redirectURI: redirectURI,
+            scopes: [.vehicleDeviceData, .vehicleCmds]
+        ))
+        api?.debuggingEnabled = true
+    }
+    
+    private func checkExistingAuth() {
+        guard let accessToken = storedAccessToken,
+              let refreshToken = storedRefreshToken,
+              let expiry = storedTokenExpiry else {
+            isAuthenticated = false
+            return
+        }
+        
+        // Check if token is still valid
+        let expiryDate = Date(timeIntervalSince1970: expiry)
+        if expiryDate > Date() {
+            let token = AuthToken(accessToken: accessToken)
+            token.refreshToken = refreshToken
+            api?.reuse(token: token)
+            isAuthenticated = true
+            
+            // Fetch vehicles in background
+            Task {
+                await fetchVehicles()
+            }
+        } else {
+            // Try to refresh the token
+            Task {
+                _ = try await api?.refreshToken()
+            }
+        }
+    }
+    
+    func getAuthorizationURL() -> URL? {
+        return api?.authenticateWebNativeURL()
+    }
+    
+    func authenticate(callbackURL: URL) async {
+        guard let api = api else {
+            errorMessage = "API not initialized"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // Exchange the authorization code in the callback URL for tokens
+            let token = try await api.authenticateWebNative(url: callbackURL)
+            
+            // Store tokens
+            storedAccessToken = token.accessToken
+            storedRefreshToken = token.refreshToken
+            if let expiresIn = token.expiresIn {
+                storedTokenExpiry = Date().addingTimeInterval(expiresIn).timeIntervalSince1970
+            }
+            
+            isAuthenticated = true
+            await fetchVehicles()
+        } catch {
+            errorMessage = "Authentication failed: \(error.localizedDescription)"
+            isAuthenticated = false
+        }
+        
+        isLoading = false
+    }
+    
+    func refreshToken() async {
+        guard let api = api,
+              storedRefreshToken != nil else {
+            logout()
+            return
+        }
+        
+        do {
+            _ = try await api.refreshToken()
+            
+            // Update stored tokens
+            if let token = api.token {
+                storedAccessToken = token.accessToken
+                storedRefreshToken = token.refreshToken
+                if let expiresIn = token.expiresIn {
+                    storedTokenExpiry = Date().addingTimeInterval(expiresIn).timeIntervalSince1970
+                }
+                isAuthenticated = true
+            }
+        } catch {
+            print("Token refresh failed: \(error)")
+            logout()
+        }
+    }
+    
+    func fetchVehicles() async {
+        guard let api = api else { return }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let fetchedVehicles = try await api.getVehicles()
+            vehicles = fetchedVehicles
+            await fetchExtendedData(for: fetchedVehicles)
+        } catch {
+            errorMessage = "Failed to fetch vehicles: \(error.localizedDescription)"
+        }
+
+        isLoading = false
+    }
+
+    private func fetchExtendedData(for vehicles: [Vehicle]) async {
+        guard let api else { return }
+        await withTaskGroup(of: (String, VehicleExtended?).self) { group in
+            for vehicle in vehicles {
+                guard let vin = vehicle.vin else { continue }
+                group.addTask {
+                    let data = try? await api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState])
+                    return (vin, data)
+                }
+            }
+            for await (vin, data) in group {
+                if let data { vehicleData[vin] = data }
+            }
+        }
+    }
+    
+    func logout() {
+        storedAccessToken = nil
+        storedRefreshToken = nil
+        storedTokenExpiry = nil
+        isAuthenticated = false
+        vehicles = []
+        vehicleData = [:]
+        
+        // Create an empty token to clear the API's stored token
+        if let api = api {
+            let emptyToken = AuthToken(accessToken: "")
+            api.reuse(token: emptyToken)
+        }
+    }
+}
+
+struct TeslaAuthView: View {
+    @StateObject private var authManager = TeslaAuthManager()
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingWebAuth = false
+    // Keep a strong reference so the presentation context provider isn't deallocated
+    // while the ASWebAuthenticationSession is in progress
+    @State private var authSession: ASWebAuthenticationSession?
+    @State private var contextProvider: ASWebAuthenticationPresentationContextProvider?
+    
+    var body: some View {
+        NavigationStack {
+            Group {
+                if authManager.isAuthenticated {
+                    authenticatedView
+                } else {
+                    loginView
+                }
+            }
+            .navigationTitle("Tesla Account")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    private var loginView: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "bolt.car.fill")
+                .font(.system(size: 80))
+                .foregroundStyle(.blue)
+            
+            Text("Connect Your Tesla")
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Text("Sign in with your Tesla account to automatically sync your vehicle information and tire data.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+            
+            if let errorMessage = authManager.errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .padding()
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(8)
+            }
+            
+            Button {
+                startAuthentication()
+            } label: {
+                HStack {
+                    if authManager.isLoading {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "person.badge.key.fill")
+                        Text("Sign In with Tesla")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(12)
+            }
+            .disabled(authManager.isLoading)
+            .padding(.horizontal)
+        }
+        .padding()
+    }
+    
+    private var authenticatedView: some View {
+        List {
+            Section {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Connected to Tesla")
+                        .fontWeight(.medium)
+                }
+            }
+            
+            Section("Your Vehicles") {
+                if authManager.isLoading {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    }
+                } else if authManager.vehicles.isEmpty {
+                    Text("No vehicles found")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(authManager.vehicles.indices, id: \.self) { index in
+                        let vehicle = authManager.vehicles[index]
+                        let extended = vehicle.vin.flatMap { authManager.vehicleData[$0] }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(vehicle.displayName ?? "Tesla Vehicle")
+                                .font(.headline)
+                            if let vin = vehicle.vin {
+                                let year = vinYear(vin)
+                                let model = vinModel(vin)
+                                Text("\(year.map(String.init) ?? "Tesla") Tesla \(model ?? "Vehicle")")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                if let trim = extended?.vehicleConfig?.trimBadging {
+                                    Text(formatTrim(trim))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if let odometer = extended?.vehicleState?.odometer {
+                                    Text("\(Int(odometer).formatted()) mi")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text("VIN: \(vin)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            
+            Section {
+                Button {
+                    Task {
+                        await authManager.fetchVehicles()
+                    }
+                } label: {
+                    Label("Refresh Vehicles", systemImage: "arrow.clockwise")
+                }
+                .disabled(authManager.isLoading)
+            }
+            
+            Section {
+                Button(role: .destructive) {
+                    authManager.logout()
+                } label: {
+                    Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            }
+        }
+    }
+    
+    private func vinYear(_ vin: String) -> Int? {
+        guard vin.count >= 10 else { return nil }
+        let yearChar = vin[vin.index(vin.startIndex, offsetBy: 9)]
+        let yearMap: [Character: Int] = [
+            "A": 2010, "B": 2011, "C": 2012, "D": 2013, "E": 2014,
+            "F": 2015, "G": 2016, "H": 2017, "J": 2018, "K": 2019,
+            "L": 2020, "M": 2021, "N": 2022, "P": 2023, "R": 2024,
+            "S": 2025, "T": 2026
+        ]
+        return yearMap[yearChar]
+    }
+
+    private func vinModel(_ vin: String) -> String? {
+        guard vin.count >= 4 else { return nil }
+        let modelChar = vin[vin.index(vin.startIndex, offsetBy: 3)]
+        switch modelChar {
+        case "S": return "Model S"
+        case "X": return "Model X"
+        case "3": return "Model 3"
+        case "Y": return "Model Y"
+        case "C": return "Cybertruck"
+        default:  return nil
+        }
+    }
+
+    private func formatTrim(_ badge: String) -> String {
+        badge.replacingOccurrences(of: "_", with: " ").uppercased()
+    }
+
+    private func startAuthentication() {
+        guard let authURL = authManager.getAuthorizationURL() else {
+            authManager.errorMessage = "Failed to generate authorization URL"
+            return
+        }
+        
+        let provider = ASWebAuthenticationPresentationContextProvider { _ in
+            #if os(iOS)
+            // Find the active window scene's key window
+            let windowScene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+            // windowScene should always be non-nil for a foreground app;
+            // the UIWindow() fallback is an emergency safety net
+            return windowScene?.windows.first { $0.isKeyWindow }
+                ?? windowScene?.windows.first
+                ?? UIApplication.shared.connectedScenes
+                    .compactMap { $0 as? UIWindowScene }
+                    .flatMap { $0.windows }
+                    .first { $0.isKeyWindow }
+                ?? UIWindow()
+            #else
+            return ASPresentationAnchor()
+            #endif
+        }
+        // Retain the provider so it isn't deallocated before the session finishes
+        contextProvider = provider
+        
+        let session = ASWebAuthenticationSession(
+            url: authURL,
+            callbackURLScheme: "teslacare"
+        ) { [self] callbackURL, error in
+            contextProvider = nil
+            authSession = nil
+            
+            if let error = error {
+                authManager.errorMessage = "Authentication cancelled: \(error.localizedDescription)"
+                return
+            }
+            
+            guard let callbackURL = callbackURL else {
+                authManager.errorMessage = "Failed to receive callback URL"
+                return
+            }
+            
+            // Pass the full callback URL — authenticateWebNative parses the code from it
+            Task {
+                await authManager.authenticate(callbackURL: callbackURL)
+            }
+        }
+        
+        session.presentationContextProvider = provider
+        session.prefersEphemeralWebBrowserSession = false
+        session.start()
+        // Retain the session so it isn't cancelled before completing
+        authSession = session
+    }
+}
+
+// MARK: - Web Login UIViewControllerRepresentable
+
+import SafariServices
+
+/// Wraps TeslaSwift's SFSafariViewController-based OAuth login flow.
+/// Present this view to show the Tesla login page inline.
+/// Handle the callback URL externally via `.onOpenURL` and call
+/// `api.authenticateWebNative(url:)` to exchange it for an `AuthToken`.
+struct TeslaWebLogin: UIViewControllerRepresentable {
+    let api: TeslaSwift
+    /// Called when the user dismisses the Safari view without completing login.
+    var onCancel: () -> Void = {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCancel: onCancel)
+    }
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        guard let vc = api.authenticateWeb(delegate: context.coordinator) else {
+            fatalError("TeslaSwift failed to produce an SFSafariViewController")
+        }
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
+
+    final class Coordinator: NSObject, SFSafariViewControllerDelegate {
+        var onCancel: () -> Void
+
+        init(onCancel: @escaping () -> Void) {
+            self.onCancel = onCancel
+        }
+
+        func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+            onCancel()
+        }
+    }
+}
+
+// MARK: - Presentation Context Provider
+
+private class ASWebAuthenticationPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    let provider: (ASWebAuthenticationSession) -> ASPresentationAnchor
+    
+    init(provider: @escaping (ASWebAuthenticationSession) -> ASPresentationAnchor) {
+        self.provider = provider
+    }
+    
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        return provider(session)
+    }
+}
+
+// MARK: - Previews
+
+#Preview("Not Authenticated") {
+    TeslaAuthView()
+}
+
+#Preview("Authenticated") {
+    let manager = TeslaAuthManager()
+    manager.isAuthenticated = true
+    return TeslaAuthView()
+}
