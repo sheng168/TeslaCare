@@ -11,18 +11,15 @@ import SwiftData
 @main
 struct TeslaCareApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Car.self,
-            Tire.self,
-            TireMeasurement.self,
-            TireRotationEvent.self,
-            TireReplacementEvent.self,
-            AirFilterChangeEvent.self,
-        ])
+        let schema = Schema(TeslaCareSchemaV2.models)
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: TeslaCareMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
