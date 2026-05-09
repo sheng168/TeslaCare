@@ -31,11 +31,17 @@ struct MainTabView: View {
                 }
                 .tag(2)
             
+            ChargersView()
+                .tabItem {
+                    Label("Chargers", systemImage: "bolt.fill")
+                }
+                .tag(3)
+
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(3)
+                .tag(4)
         }
     }
 }
