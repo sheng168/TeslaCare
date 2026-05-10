@@ -17,6 +17,8 @@ final class Car {
     var year: Int = 0
     var dateAdded: Date = Date()
     var vin: String?
+    var trimBadging: String?
+    var perfConfig: String?
     var latitude: Double?
     var longitude: Double?
     var heading: Double?
@@ -74,6 +76,27 @@ final class Car {
 
     func tpmsPressure(for position: TirePosition) -> Double? {
         latestTPMSReading?.pressure(for: position)
+    }
+
+    /// Derived from trimBadging + perfConfig. Examples: "Long Range AWD", "Standard Range RWD", "Performance AWD", "Plaid AWD"
+    var drivetrainSummary: String? {
+        guard let raw = trimBadging?.lowercased(), !raw.isEmpty else { return nil }
+
+        let isPlaid     = raw.contains("plaid")
+        let isPerf      = isPlaid || raw.hasPrefix("p") || perfConfig?.lowercased() == "sport"
+        let isAWD       = raw.contains("awd") || raw.hasSuffix("d") // "100d","75d","p100d" etc.
+        let isLR        = !isPlaid && (raw.contains("lr") || (!isPerf && ["100d","90d","85d","75d","100"].contains(raw)))
+        let isSR        = raw.contains("sr") || raw.contains("standard") || ["base","60","40","75"].contains(raw)
+
+        let range: String
+        if isPlaid      { range = "Plaid" }
+        else if isPerf  { range = "Performance" }
+        else if isLR    { range = "Long Range" }
+        else if isSR    { range = "Standard Range" }
+        else            { range = "" }
+
+        let drive = isAWD ? "AWD" : "RWD"
+        return range.isEmpty ? drive : "\(range) \(drive)"
     }
 
     var displayName: String {

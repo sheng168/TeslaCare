@@ -206,6 +206,10 @@ class TeslaAuthManager: ObservableObject {
             car.make = "Tesla"
             if let model = vinModel(vin) { car.model = model }
             if let year = vinYear(vin) { car.year = year }
+            if let config = vehicleData[vin]?.vehicleConfig {
+                if let trim = config.trimBadging { car.trimBadging = trim }
+                if let perf = config.perfConfig { car.perfConfig = perf }
+            }
 
             if let odometer = vehicleState?.odometer {
                 let reading = MileageReading(date: Date(), mileage: Int(odometer), source: "tesla_api")

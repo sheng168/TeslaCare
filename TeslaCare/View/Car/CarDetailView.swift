@@ -180,6 +180,17 @@ struct CarDetailView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
+            if let summary = car.drivetrainSummary {
+                Text(summary)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.blue.opacity(0.8))
+                    .clipShape(Capsule())
+            }
+
             if let mileage = car.mileage {
                 Text("\(mileage.formatted()) mi")
                     .font(.subheadline)

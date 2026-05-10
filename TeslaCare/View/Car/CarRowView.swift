@@ -23,6 +23,13 @@ struct CarRowView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
+                if let summary = car.drivetrainSummary {
+                    Text(summary)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.blue)
+                }
+
                 if let mileage = car.mileage {
                     Text("·")
                         .foregroundStyle(.tertiary)
