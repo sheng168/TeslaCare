@@ -8,9 +8,11 @@
 import SwiftUI
 import SwiftData
 import Charts
+import CoreLocation
 
 struct CarDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(LocationManager.self) private var locationManager
     let car: Car
     
     @State private var showingAddMeasurement = false
@@ -18,6 +20,12 @@ struct CarDetailView: View {
     @State private var showingReplaceTires = false
     @State private var showingLogAirFilter = false
     @State private var selectedPosition: TirePosition?
+    
+    @State private var chartsExpanded = true
+    @State private var rotationExpanded = true
+    @State private var replacementExpanded = true
+    @State private var airFilterExpanded = true
+    @State private var measurementsExpanded = true
     
     var sortedMeasurements: [TireMeasurement] {
         (car.measurements ?? []).sorted { $0.date > $1.date }
@@ -92,9 +100,18 @@ struct CarDetailView: View {
         let hasTpms = car.latestTPMSReading != nil
         let hasMeasurements = !(car.measurements?.isEmpty ?? true)
         if hasTpms || hasMeasurements {
-            HStack(alignment: .top, spacing: 8) {
-                TPMSHistoryChartView(car: car, chartHeight: 160)
-                TreadDepthHistoryChartView(car: car, chartHeight: 160)
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $chartsExpanded) {
+                    HStack(alignment: .top, spacing: 8) {
+                        TPMSHistoryChartView(car: car, chartHeight: 160)
+                        TreadDepthHistoryChartView(car: car, chartHeight: 160)
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("History Charts")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                }
             }
             .padding(.horizontal)
         }
@@ -117,11 +134,44 @@ struct CarDetailView: View {
                     .foregroundStyle(.secondary)
             }
 
+            carLocationRow
+
             if let health = car.tireHealthPercentage {
                 tireHealthCard(health)
             }
         }
         .padding()
+    }
+
+    @ViewBuilder
+    private var carLocationRow: some View {
+        if let carLat = car.latitude, let carLon = car.longitude {
+            let carLocation = CLLocation(latitude: carLat, longitude: carLon)
+            HStack(spacing: 6) {
+                if let heading = car.heading {
+                    Image(systemName: "location.north.fill")
+                        .rotationEffect(.degrees(heading))
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                }
+                if let userLocation = locationManager.userLocation {
+                    let distance = userLocation.distance(from: carLocation)
+                    let measurement = Measurement(value: distance, unit: UnitLength.meters)
+                    let formatted = measurement.converted(to: distance < 1000 ? .meters : .kilometers)
+                    Text(formatted, format: .measurement(width: .abbreviated, usage: .road))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text("away")
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    Text("Locating…")
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .onAppear { locationManager.refresh() }
+        }
     }
 
     @ViewBuilder
@@ -185,15 +235,21 @@ struct CarDetailView: View {
     @ViewBuilder
     private var rotationHistorySection: some View {
         if let rotations = car.rotationEvents?.sorted(by: { $0.date > $1.date }), !rotations.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Rotation History")
-                    .font(.headline)
-                    .padding(.horizontal)
-                ForEach(rotations) { rotation in
-                    RotationEventRow(rotation: rotation)
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $rotationExpanded) {
+                    VStack(spacing: 8) {
+                        ForEach(rotations) { rotation in
+                            RotationEventRow(rotation: rotation)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("Rotation History")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
                 }
-                .padding(.horizontal)
             }
+            .padding(.horizontal)
             .padding(.top)
         }
     }
@@ -201,15 +257,21 @@ struct CarDetailView: View {
     @ViewBuilder
     private var replacementHistorySection: some View {
         if let replacements = car.replacementEvents?.sorted(by: { $0.date > $1.date }), !replacements.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Replacement History")
-                    .font(.headline)
-                    .padding(.horizontal)
-                ForEach(replacements) { replacement in
-                    ReplacementEventRow(replacement: replacement)
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $replacementExpanded) {
+                    VStack(spacing: 8) {
+                        ForEach(replacements) { replacement in
+                            ReplacementEventRow(replacement: replacement)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("Replacement History")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
                 }
-                .padding(.horizontal)
             }
+            .padding(.horizontal)
             .padding(.top)
         }
     }
@@ -217,40 +279,53 @@ struct CarDetailView: View {
     @ViewBuilder
     private var airFilterHistorySection: some View {
         if let airFilters = car.airFilterChanges?.sorted(by: { $0.date > $1.date }), !airFilters.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Air Filter Changes")
-                    .font(.headline)
-                    .padding(.horizontal)
-                ForEach(airFilters) { filterChange in
-                    AirFilterChangeRow(filterChange: filterChange)
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $airFilterExpanded) {
+                    VStack(spacing: 8) {
+                        ForEach(airFilters) { filterChange in
+                            AirFilterChangeRow(filterChange: filterChange)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("Air Filter Changes")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
                 }
-                .padding(.horizontal)
             }
+            .padding(.horizontal)
             .padding(.top)
         }
     }
 
     @ViewBuilder
     private var measurementHistorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Measurement History")
-                .font(.headline)
-                .padding(.horizontal)
-
-            if sortedMeasurements.isEmpty {
-                ContentUnavailableView(
-                    "No Measurements",
-                    systemImage: "gauge.with.dots.needle.0percent",
-                    description: Text("Add tire measurements to track tread depth over time")
-                )
-                .frame(height: 200)
-            } else {
-                ForEach(sortedMeasurements) { measurement in
-                    MeasurementRowView(measurement: measurement)
+        VStack(spacing: 0) {
+            DisclosureGroup(isExpanded: $measurementsExpanded) {
+                Group {
+                    if sortedMeasurements.isEmpty {
+                        ContentUnavailableView(
+                            "No Measurements",
+                            systemImage: "gauge.with.dots.needle.0percent",
+                            description: Text("Add tire measurements to track tread depth over time")
+                        )
+                        .frame(height: 200)
+                    } else {
+                        VStack(spacing: 8) {
+                            ForEach(sortedMeasurements) { measurement in
+                                MeasurementRowView(measurement: measurement)
+                            }
+                        }
+                    }
                 }
-                .padding(.horizontal)
+                .padding(.top, 4)
+            } label: {
+                Text("Measurement History")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
             }
         }
+        .padding(.horizontal)
         .padding(.top)
     }
 

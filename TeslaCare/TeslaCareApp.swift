@@ -10,6 +10,8 @@ import SwiftData
 
 @main
 struct TeslaCareApp: App {
+    @State private var locationManager = LocationManager()
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Car.self,
@@ -33,6 +35,7 @@ struct TeslaCareApp: App {
     var body: some Scene {
         WindowGroup {
             MainTabView()
+                .environment(locationManager)
         }
         .modelContainer(sharedModelContainer)
     }

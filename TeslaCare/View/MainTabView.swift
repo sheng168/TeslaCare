@@ -11,6 +11,7 @@ import SwiftData
 struct MainTabView: View {
     @AppStorage("selectedTab") private var selectedTab = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(LocationManager.self) private var locationManager
     @Query private var cars: [Car]
 
     var body: some View {
@@ -41,6 +42,7 @@ struct MainTabView: View {
         }
         .onAppear {
             NotificationManager.requestPermission()
+            locationManager.requestPermission()
             rescheduleAll()
         }
         .onChange(of: scenePhase) { _, phase in

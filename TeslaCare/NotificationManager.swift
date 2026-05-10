@@ -8,10 +8,12 @@ import SwiftData
 import UserNotifications
 
 enum NotificationManager {
+    static let hour = 60 * 60.0
+    static let day = 24 * hour
     #if DEBUG
-    static let reminderInterval: TimeInterval = 2 * 60  // 2 minutes
+    static let reminderInterval: TimeInterval = 2 * hour // 2 minutes
     #else
-    static let reminderInterval: TimeInterval = 14 * 24 * 60 * 60  // 2 weeks
+    static let reminderInterval: TimeInterval = 14 * day  // 2 weeks
     #endif
 
     // Cancels any existing reminder for this car and schedules a new one

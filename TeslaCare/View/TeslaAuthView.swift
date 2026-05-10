@@ -155,7 +155,7 @@ class TeslaAuthManager: ObservableObject {
             for vehicle in vehicles {
                 guard let vin = vehicle.vin else { continue }
                 group.addTask {
-                    let data = try? await api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState])
+                    let data = try? await api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .driveState])
                     return (vin, data)
                 }
             }
@@ -392,6 +392,12 @@ struct TeslaAuthView: View {
                 )
                 reading.car = car
                 modelContext.insert(reading)
+            }
+            if let driveState = authManager.vehicleData[vin]?.driveState {
+                if let lat = driveState.latitude { car.latitude = lat }
+                if let lon = driveState.longitude { car.longitude = lon }
+                if let hdg = driveState.heading { car.heading = hdg }
+                if driveState.latitude != nil { car.locationUpdatedAt = Date() }
             }
             NotificationManager.scheduleUpdateReminder(for: car)
         }

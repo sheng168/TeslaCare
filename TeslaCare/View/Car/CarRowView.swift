@@ -7,15 +7,17 @@
 
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 struct CarRowView: View {
     let car: Car
-    
+    @Environment(LocationManager.self) private var locationManager
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(car.displayName)
                 .font(.headline)
-            
+
             HStack(spacing: 8) {
                 Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
                     .font(.subheadline)
@@ -27,6 +29,21 @@ struct CarRowView: View {
                     Text("\(mileage.formatted()) mi")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                }
+
+                if let distanceText = distanceFromUser {
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Image(systemName: "location.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                    Text(distanceText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    #if DEBUG
+                    Text("No gps")
+                    #endif
                 }
             }
 
@@ -111,6 +128,18 @@ struct CarRowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var distanceFromUser: String? {
+        guard let carLat = car.latitude, let carLon = car.longitude,
+              let userLocation = locationManager.userLocation else { return nil }
+        let carLocation = CLLocation(latitude: carLat, longitude: carLon)
+        let meters = userLocation.distance(from: carLocation)
+        if meters < 1000 {
+            return String(format: "%.0f m", meters)
+        } else {
+            return String(format: "%.1f km", meters / 1000)
+        }
     }
 
     private var lastUpdatedDate: Date? {

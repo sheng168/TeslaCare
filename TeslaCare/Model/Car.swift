@@ -17,6 +17,10 @@ final class Car {
     var year: Int = 0
     var dateAdded: Date = Date()
     var vin: String?
+    var latitude: Double?
+    var longitude: Double?
+    var heading: Double?
+    var locationUpdatedAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \MileageReading.car)
     var mileageReadings: [MileageReading]?

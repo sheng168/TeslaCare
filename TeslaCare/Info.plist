@@ -6,6 +6,8 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TeslaCare uses your location to show how far away your car is.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
