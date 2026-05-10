@@ -393,6 +393,7 @@ struct TeslaAuthView: View {
                 reading.car = car
                 modelContext.insert(reading)
             }
+            NotificationManager.scheduleUpdateReminder(for: car)
         }
     }
 

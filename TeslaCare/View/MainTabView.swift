@@ -10,6 +10,8 @@ import SwiftData
 
 struct MainTabView: View {
     @AppStorage("selectedTab") private var selectedTab = 0
+    @Environment(\.scenePhase) private var scenePhase
+    @Query private var cars: [Car]
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -36,6 +38,19 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gear")
                 }
                 .tag(3)
+        }
+        .onAppear {
+            NotificationManager.requestPermission()
+            rescheduleAll()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { rescheduleAll() }
+        }
+    }
+
+    private func rescheduleAll() {
+        for car in cars {
+            NotificationManager.scheduleUpdateReminder(for: car)
         }
     }
 }

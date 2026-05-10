@@ -465,7 +465,7 @@ struct AddMeasurementView: View {
         
         measurement.car = car
         modelContext.insert(measurement)
-        
+        NotificationManager.scheduleUpdateReminder(for: car)
         dismiss()
     }
 }

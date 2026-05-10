@@ -49,6 +49,19 @@ final class Car {
         self.dateAdded = dateAdded
     }
     
+    var lastUpdatedAt: Date? {
+        [
+            mileageReadings?.max(by: { $0.date < $1.date })?.date,
+            tpmsReadings?.max(by: { $0.date < $1.date })?.date,
+            measurements?.max(by: { $0.date < $1.date })?.date,
+            rotationEvents?.max(by: { $0.date < $1.date })?.date,
+            replacementEvents?.max(by: { $0.date < $1.date })?.date,
+            airFilterChanges?.max(by: { $0.date < $1.date })?.date,
+        ]
+        .compactMap { $0 }
+        .max()
+    }
+
     var latestTPMSReading: TPMSReading? {
         tpmsReadings?.sorted { $0.date > $1.date }.first
     }
