@@ -10,6 +10,7 @@ import SwiftData
 
 @main
 struct TeslaCareApp: App {
+    @StateObject private var authManager = TeslaAuthManager()
     @State private var locationManager = LocationManager()
 
     var sharedModelContainer: ModelContainer = {
@@ -36,6 +37,7 @@ struct TeslaCareApp: App {
         WindowGroup {
             MainTabView()
                 .environment(locationManager)
+                .environmentObject(authManager)
         }
         .modelContainer(sharedModelContainer)
     }

@@ -1022,5 +1022,7 @@ struct AirFilterChangeRow: View {
         
         return CarDetailView(car: car)
             .modelContainer(container)
+            .environment(LocationManager())
+            .environmentObject(TeslaAuthManager())
     }
 }

@@ -11,7 +11,9 @@ import SwiftData
 struct MainTabView: View {
     @AppStorage("selectedTab") private var selectedTab = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
     @Environment(LocationManager.self) private var locationManager
+    @EnvironmentObject private var authManager: TeslaAuthManager
     @Query private var cars: [Car]
 
     var body: some View {
@@ -24,7 +26,7 @@ struct MainTabView: View {
             
             TireListView()
                 .tabItem {
-                    Label("Tires", systemImage: "circle.dotted")
+                    Label("Tires", systemImage: "circle.circle")
                 }
                 .tag(1)
             
@@ -46,7 +48,17 @@ struct MainTabView: View {
             rescheduleAll()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { rescheduleAll() }
+            if phase == .active {
+                rescheduleAll()
+                if authManager.isAuthenticated && authManager.needsDailySync {
+                    Task { await authManager.fetchVehicles() }
+                }
+            }
+        }
+        .onChange(of: authManager.isLoading) { _, isLoading in
+            if !isLoading && authManager.isAuthenticated && !authManager.vehicles.isEmpty {
+                authManager.syncCars(into: modelContext)
+            }
         }
     }
 
@@ -60,4 +72,6 @@ struct MainTabView: View {
 #Preview {
     MainTabView()
         .modelContainer(for: [Car.self, Tire.self, TireMeasurement.self], inMemory: true)
+        .environment(LocationManager())
+        .environmentObject(TeslaAuthManager())
 }

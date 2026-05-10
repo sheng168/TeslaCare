@@ -172,17 +172,103 @@ class TeslaAuthManager: ObservableObject {
         isAuthenticated = false
         vehicles = []
         vehicleData = [:]
-        
+
         // Create an empty token to clear the API's stored token
         if let api = api {
             let emptyToken = AuthToken(accessToken: "")
             api.reuse(token: emptyToken)
         }
     }
+
+    // MARK: - Daily Sync
+
+    @AppStorage("lastTeslaSyncDate") var lastSyncDate: Double = 0
+
+    var needsDailySync: Bool {
+        Date().timeIntervalSince1970 - lastSyncDate > 86400
+    }
+
+    func syncCars(into context: ModelContext) {
+        for vehicle in vehicles {
+            guard let vin = vehicle.vin else { continue }
+
+            let predicate = #Predicate<Car> { $0.vin == vin }
+            let existing = (try? context.fetch(FetchDescriptor(predicate: predicate)))?.first
+
+            let vehicleState = vehicleData[vin]?.vehicleState
+
+            let car: Car
+            if let existing {
+                car = existing
+            } else {
+                car = Car(name: "", make: "Tesla", model: "", year: 0)
+                car.vin = vin
+                context.insert(car)
+            }
+
+            if let displayName = vehicle.displayName, !displayName.isEmpty {
+                car.name = displayName
+            }
+            car.make = "Tesla"
+            if let model = vinModel(vin) { car.model = model }
+            if let year = vinYear(vin) { car.year = year }
+
+            if let odometer = vehicleState?.odometer {
+                let reading = MileageReading(date: Date(), mileage: Int(odometer), source: "tesla_api")
+                reading.car = car
+                context.insert(reading)
+            }
+            if let state = vehicleState, state.tpms_pressure_fl != nil {
+                let reading = TPMSReading(
+                    date: Date(),
+                    frontLeft: state.tpms_pressure_fl,
+                    frontRight: state.tpms_pressure_fr,
+                    rearLeft: state.tpms_pressure_rl,
+                    rearRight: state.tpms_pressure_rr,
+                    outsideTemperature: vehicleData[vin]?.climateState?.outsideTemperature?.value.converted(to: .celsius).value
+                )
+                reading.car = car
+                context.insert(reading)
+            }
+            if let driveState = vehicleData[vin]?.driveState {
+                if let lat = driveState.latitude { car.latitude = lat }
+                if let lon = driveState.longitude { car.longitude = lon }
+                if let hdg = driveState.heading { car.heading = hdg }
+                if driveState.latitude != nil { car.locationUpdatedAt = Date() }
+            }
+            NotificationManager.scheduleUpdateReminder(for: car)
+        }
+        lastSyncDate = Date().timeIntervalSince1970
+    }
+
+    func vinYear(_ vin: String) -> Int? {
+        guard vin.count >= 10 else { return nil }
+        let yearChar = vin[vin.index(vin.startIndex, offsetBy: 9)]
+        let yearMap: [Character: Int] = [
+            "A": 2010, "B": 2011, "C": 2012, "D": 2013, "E": 2014,
+            "F": 2015, "G": 2016, "H": 2017, "J": 2018, "K": 2019,
+            "L": 2020, "M": 2021, "N": 2022, "P": 2023, "R": 2024,
+            "S": 2025, "T": 2026
+        ]
+        return yearMap[yearChar]
+    }
+
+    func vinModel(_ vin: String) -> String? {
+        guard vin.count >= 4 else { return nil }
+        let modelChar = vin[vin.index(vin.startIndex, offsetBy: 3)]
+        switch modelChar {
+        case "S": return "Model S"
+        case "X": return "Model X"
+        case "3": return "Model 3"
+        case "Y": return "Model Y"
+        case "C": return "Cybertruck"
+        default:  return nil
+        }
+    }
 }
 
 struct TeslaAuthView: View {
-    @StateObject private var authManager = TeslaAuthManager()
+    @EnvironmentObject private var authManager: TeslaAuthManager
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @State private var showingWebAuth = false
@@ -295,8 +381,8 @@ struct TeslaAuthView: View {
                             Text(vehicle.displayName ?? "Tesla Vehicle")
                                 .font(.headline)
                             if let vin = vehicle.vin {
-                                let year = vinYear(vin)
-                                let model = vinModel(vin)
+                                let year = authManager.vinYear(vin)
+                                let model = authManager.vinModel(vin)
                                 Text("\(year.map(String.init) ?? "Tesla") Tesla \(model ?? "Vehicle")")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
@@ -352,80 +438,7 @@ struct TeslaAuthView: View {
     }
     
     private func syncCarsFromTesla() {
-        for vehicle in authManager.vehicles {
-            guard let vin = vehicle.vin else { continue }
-
-            let predicate = #Predicate<Car> { $0.vin == vin }
-            let existing = (try? modelContext.fetch(FetchDescriptor(predicate: predicate)))?.first
-
-            let vehicleState = authManager.vehicleData[vin]?.vehicleState
-
-            let car: Car
-            if let existing {
-                car = existing
-            } else {
-                car = Car(name: "", make: "Tesla", model: "", year: 0)
-                car.vin = vin
-                modelContext.insert(car)
-            }
-
-            if let displayName = vehicle.displayName, !displayName.isEmpty {
-                car.name = displayName
-            }
-            car.make = "Tesla"
-            if let model = vinModel(vin) { car.model = model }
-            if let year = vinYear(vin) { car.year = year }
-
-            if let odometer = vehicleState?.odometer {
-                let reading = MileageReading(date: Date(), mileage: Int(odometer), source: "tesla_api")
-                reading.car = car
-                modelContext.insert(reading)
-            }
-            if let state = vehicleState, state.tpms_pressure_fl != nil {
-                let reading = TPMSReading(
-                    date: Date(),
-                    frontLeft: state.tpms_pressure_fl,
-                    frontRight: state.tpms_pressure_fr,
-                    rearLeft: state.tpms_pressure_rl,
-                    rearRight: state.tpms_pressure_rr,
-                    outsideTemperature: authManager.vehicleData[vin]?.climateState?.outsideTemperature?.value.converted(to: .celsius).value
-                )
-                reading.car = car
-                modelContext.insert(reading)
-            }
-            if let driveState = authManager.vehicleData[vin]?.driveState {
-                if let lat = driveState.latitude { car.latitude = lat }
-                if let lon = driveState.longitude { car.longitude = lon }
-                if let hdg = driveState.heading { car.heading = hdg }
-                if driveState.latitude != nil { car.locationUpdatedAt = Date() }
-            }
-            NotificationManager.scheduleUpdateReminder(for: car)
-        }
-    }
-
-    private func vinYear(_ vin: String) -> Int? {
-        guard vin.count >= 10 else { return nil }
-        let yearChar = vin[vin.index(vin.startIndex, offsetBy: 9)]
-        let yearMap: [Character: Int] = [
-            "A": 2010, "B": 2011, "C": 2012, "D": 2013, "E": 2014,
-            "F": 2015, "G": 2016, "H": 2017, "J": 2018, "K": 2019,
-            "L": 2020, "M": 2021, "N": 2022, "P": 2023, "R": 2024,
-            "S": 2025, "T": 2026
-        ]
-        return yearMap[yearChar]
-    }
-
-    private func vinModel(_ vin: String) -> String? {
-        guard vin.count >= 4 else { return nil }
-        let modelChar = vin[vin.index(vin.startIndex, offsetBy: 3)]
-        switch modelChar {
-        case "S": return "Model S"
-        case "X": return "Model X"
-        case "3": return "Model 3"
-        case "Y": return "Model Y"
-        case "C": return "Cybertruck"
-        default:  return nil
-        }
+        authManager.syncCars(into: modelContext)
     }
 
     private func formatTrim(_ badge: String) -> String {
@@ -568,10 +581,12 @@ private class ASWebAuthenticationPresentationContextProvider: NSObject, ASWebAut
 
 #Preview("Not Authenticated") {
     TeslaAuthView()
+        .environmentObject(TeslaAuthManager())
 }
 
 #Preview("Authenticated") {
     let manager = TeslaAuthManager()
     manager.isAuthenticated = true
     return TeslaAuthView()
+        .environmentObject(manager)
 }
