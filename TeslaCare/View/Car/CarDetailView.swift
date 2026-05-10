@@ -21,11 +21,14 @@ struct CarDetailView: View {
     @State private var showingLogAirFilter = false
     @State private var selectedPosition: TirePosition?
     
-    @State private var chartsExpanded = true
-    @State private var rotationExpanded = true
-    @State private var replacementExpanded = true
-    @State private var airFilterExpanded = true
-    @State private var measurementsExpanded = true
+    @AppStorage("detail.pressureExpanded") private var pressureExpanded = true
+    @AppStorage("detail.tireGridExpanded") private var tireGridExpanded = true
+    @AppStorage("detail.actionsExpanded") private var actionsExpanded = true
+    @AppStorage("detail.chartsExpanded") private var chartsExpanded = true
+    @AppStorage("detail.rotationExpanded") private var rotationExpanded = true
+    @AppStorage("detail.replacementExpanded") private var replacementExpanded = true
+    @AppStorage("detail.airFilterExpanded") private var airFilterExpanded = true
+    @AppStorage("detail.measurementsExpanded") private var measurementsExpanded = true
     
     var sortedMeasurements: [TireMeasurement] {
         (car.measurements ?? []).sorted { $0.date > $1.date }
@@ -36,17 +39,12 @@ struct CarDetailView: View {
             VStack(spacing: 20) {
                 carHeaderSection
 
-                if car.latestTPMSReading != nil {
-                    TPMSSummaryView(car: car)
-                        .padding(.horizontal)
-                }
+                tireGridSection
+                actionButtonsSection
 
                 historyChartsSection
+                pressureSection
 
-                TireGridView(car: car, selectedPosition: $selectedPosition)
-                    .padding(.horizontal)
-
-                actionButtons
                 rotationHistorySection
                 replacementHistorySection
                 airFilterHistorySection
@@ -94,6 +92,60 @@ struct CarDetailView: View {
     }
     
     // MARK: - Sections
+
+    @ViewBuilder
+    private var pressureSection: some View {
+        if car.latestTPMSReading != nil {
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $pressureExpanded) {
+                    TPMSSummaryView(car: car)
+                        .padding(.top, 4)
+                } label: {
+                    Text("Tire Pressure")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private var tireGridSection: some View {
+        VStack(spacing: 0) {
+            DisclosureGroup(isExpanded: $tireGridExpanded) {
+                TireGridView(car: car, selectedPosition: $selectedPosition)
+                    .padding(.top, 4)
+            } label: {
+                Text("Tires")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    @ViewBuilder
+    private var actionButtonsSection: some View {
+        VStack(spacing: 0) {
+            DisclosureGroup(isExpanded: $actionsExpanded) {
+                HStack(spacing: 12) {
+                    actionButton("Rotate", icon: "arrow.triangle.2.circlepath", color: .blue) {
+                        showingRotateTires = true
+                    }
+                    actionButton("Replace", icon: "plus.circle.fill", color: .green) {
+                        showingReplaceTires = true
+                    }
+                }
+                .padding(.top, 4)
+            } label: {
+                Text("Actions")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .padding(.horizontal)
+    }
 
     @ViewBuilder
     private var historyChartsSection: some View {
@@ -202,18 +254,6 @@ struct CarDetailView: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.1), radius: 5)
-    }
-
-    private var actionButtons: some View {
-        HStack(spacing: 12) {
-            actionButton("Rotate", icon: "arrow.triangle.2.circlepath", color: .blue) {
-                showingRotateTires = true
-            }
-            actionButton("Replace", icon: "plus.circle.fill", color: .green) {
-                showingReplaceTires = true
-            }
-        }
-        .padding(.horizontal)
     }
 
     private func actionButton(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
