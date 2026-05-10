@@ -29,10 +29,13 @@ struct AddMeasurementView: View {
     @State private var centerTreadDepth: Double = 8.0
     @State private var outerTreadDepth: Double = 8.0
 
-    // Photo
-    @State private var selectedPhoto: UIImage?
-    @State private var photoPickerItem: PhotosPickerItem?
+    // Photos
+    @State private var selectedPhotos: [UIImage] = []
+    @State private var photoPickerItems: [PhotosPickerItem] = []
+    @State private var cameraCapture: UIImage?
     @State private var showingCamera = false
+    @State private var showingPhotoSource = false
+    @State private var showingPhotoPicker = false
     
     init(car: Car, preselectedPosition: TirePosition? = nil) {
         self.car = car
@@ -396,58 +399,81 @@ struct AddMeasurementView: View {
                         .lineLimit(3...6)
                 }
 
-                Section("Photo") {
-                    if let photo = selectedPhoto {
-                        Image(uiImage: photo)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity, maxHeight: 220)
-                            .clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                Section("Photos") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(selectedPhotos.indices, id: \.self) { index in
+                                ZStack(alignment: .topTrailing) {
+                                    Image(uiImage: selectedPhotos[index])
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 100, height: 100)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                        Button("Remove Photo", role: .destructive) {
-                            selectedPhoto = nil
-                            photoPickerItem = nil
-                        }
-                    } else {
-                        HStack(spacing: 16) {
-                            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                                Button {
-                                    showingCamera = true
-                                } label: {
-                                    Label("Camera", systemImage: "camera.fill")
-                                        .frame(maxWidth: .infinity)
+                                    Button {
+                                        selectedPhotos.remove(at: index)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.title3)
+                                            .foregroundStyle(.white)
+                                            .background(Color.black.opacity(0.5), in: Circle())
+                                    }
+                                    .offset(x: 6, y: -6)
                                 }
-                                .buttonStyle(.bordered)
-
-                                Divider().frame(height: 28)
                             }
 
-                            PhotosPicker(selection: $photoPickerItem, matching: .images) {
-                                Label("Library", systemImage: "photo.on.rectangle")
-                                    .frame(maxWidth: .infinity)
+                            Button {
+                                showingPhotoSource = true
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                        .font(.title2)
+                                    Text("Add")
+                                        .font(.caption)
+                                }
+                                .frame(width: 100, height: 100)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .foregroundStyle(.secondary)
                             }
-                            .buttonStyle(.bordered)
                         }
                         .padding(.vertical, 4)
                     }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
             }
             .navigationTitle("Add Measurement")
             .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: photoPickerItem) { _, newItem in
+            .onChange(of: photoPickerItems) { _, newItems in
                 Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        selectedPhoto = image
+                    for item in newItems {
+                        if let data = try? await item.loadTransferable(type: Data.self),
+                           let image = UIImage(data: data) {
+                            selectedPhotos.append(image)
+                        }
                     }
+                    photoPickerItems = []
+                }
+            }
+            .onChange(of: cameraCapture) { _, image in
+                if let image {
+                    selectedPhotos.append(image)
+                    cameraCapture = nil
                 }
             }
             .sheet(isPresented: $showingCamera) {
-                ImagePickerView(sourceType: .camera, selectedImage: $selectedPhoto)
+                ImagePickerView(sourceType: .camera, selectedImage: $cameraCapture)
                     .ignoresSafeArea()
             }
+            .confirmationDialog("Add Photo", isPresented: $showingPhotoSource) {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button("Take Photo") { showingCamera = true }
+                }
+                Button("Choose from Library") { showingPhotoPicker = true }
+                Button("Cancel", role: .cancel) {}
+            }
+            .photosPicker(isPresented: $showingPhotoPicker, selection: $photoPickerItems,
+                          maxSelectionCount: 10, matching: .images)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -520,8 +546,14 @@ struct AddMeasurementView: View {
         }
         
         measurement.car = car
-        measurement.photoData = selectedPhoto?.jpegData(compressionQuality: 0.7)
         modelContext.insert(measurement)
+        for (index, image) in selectedPhotos.enumerated() {
+            if let data = image.jpegData(compressionQuality: 0.7) {
+                let photo = TirePhoto(data: data, sortIndex: index)
+                photo.measurement = measurement
+                modelContext.insert(photo)
+            }
+        }
         NotificationManager.scheduleUpdateReminder(for: car)
         dismiss()
     }

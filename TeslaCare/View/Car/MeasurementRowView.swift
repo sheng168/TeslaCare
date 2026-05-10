@@ -128,12 +128,17 @@ struct MeasurementRowView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if let data = measurement.photoData, let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                if let photos = measurement.photos?.sorted(by: { $0.sortIndex < $1.sortIndex }),
+                   !photos.isEmpty {
+                    ForEach(photos, id: \.persistentModelID) { photo in
+                        if let uiImage = UIImage(data: photo.data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 56, height: 56)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                    }
                 }
             }
         }

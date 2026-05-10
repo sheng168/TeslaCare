@@ -22,8 +22,9 @@ final class TireMeasurement {
     var centerTreadDepth: Double? // Center measurement
     var outerTreadDepth: Double? // Outer edge measurement
 
-    var photoData: Data? // JPEG photo of the tire tread
-    
+    @Relationship(deleteRule: .cascade, inverse: \TirePhoto.measurement)
+    var photos: [TirePhoto]?
+
     var car: Car?
     var tire: Tire? // Non-optional - every measurement must be associated with a tire
     
