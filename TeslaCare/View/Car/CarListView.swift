@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-struct ContentView: View {
+struct CarListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Car.dateAdded, order: .reverse) private var cars: [Car]
     @State private var showingAddCar = false
@@ -64,6 +64,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    CarListView()
         .modelContainer(for: Car.self, inMemory: true)
 }
