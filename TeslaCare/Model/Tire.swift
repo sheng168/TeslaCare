@@ -11,17 +11,17 @@ import SwiftData
 // MARK: - Tire Model
 @Model
 final class Tire {
-    var brand: String
-    var modelName: String
-    var size: String // e.g., "235/45R18"
-    var dotNumber: String // DOT serial number
-    var purchaseDate: Date
-    var installDate: Date
-    var initialTreadDepth: Double // in 32nds of an inch
+    var brand: String = ""
+    var modelName: String = ""
+    var size: String = "" // e.g., "235/45R18"
+    var dotNumber: String = "" // DOT serial number
+    var purchaseDate: Date = Date()
+    var installDate: Date = Date()
+    var initialTreadDepth: Double = 10.0 // in 32nds of an inch
     var purchasePrice: Double?
-    var currentPosition: String // Store as raw value
+    var currentPosition: String = "Front Left" // Store as raw value
     var mileageAtInstall: Int?
-    var notes: String
+    var notes: String = ""
     
     var car: Car?
     

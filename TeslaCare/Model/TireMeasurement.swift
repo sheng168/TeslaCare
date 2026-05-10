@@ -11,10 +11,10 @@ import SwiftData
 // MARK: - Tire Measurement Model
 @Model
 final class TireMeasurement {
-    var date: Date
-    var treadDepth: Double // in 32nds of an inch (average if multiple measurements)
-    var positionRaw: String
-    var notes: String
+    var date: Date = Date()
+    var treadDepth: Double = 0.0 // in 32nds of an inch (average if multiple measurements)
+    var positionRaw: String = "Front Left"
+    var notes: String = ""
     var mileage: Int?
     
     // Multiple measurement points for uneven wear detection

@@ -37,13 +37,13 @@ enum AirFilterType: String, Codable, CaseIterable {
 // MARK: - Air Filter Change Event Model
 @Model
 final class AirFilterChangeEvent {
-    var date: Date
-    var filterTypeRaw: String
+    var date: Date = Date()
+    var filterTypeRaw: String = "Cabin Air Filter"
     var mileage: Int?
-    var brand: String
-    var partNumber: String
+    var brand: String = ""
+    var partNumber: String = ""
     var cost: Double?
-    var notes: String
+    var notes: String = ""
     
     var car: Car?
     

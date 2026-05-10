@@ -75,10 +75,10 @@ enum TireRotationPattern: String, Codable, CaseIterable {
 // MARK: - Tire Rotation Event Model
 @Model
 final class TireRotationEvent {
-    var date: Date
-    var patternRaw: String
+    var date: Date = Date()
+    var patternRaw: String = "Front to Back"
     var mileage: Int?
-    var notes: String
+    var notes: String = ""
     
     var car: Car?
     

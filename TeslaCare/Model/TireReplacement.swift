@@ -11,18 +11,18 @@ import SwiftData
 // MARK: - Tire Replacement Event Model
 @Model
 final class TireReplacementEvent {
-    var date: Date
+    var date: Date = Date()
     var mileage: Int?
-    var notes: String
-    var brand: String
-    var modelName: String
+    var notes: String = ""
+    var brand: String = ""
+    var modelName: String = ""
     var cost: Double?
-    
+
     // Which tires were replaced
-    var replacedFrontLeft: Bool
-    var replacedFrontRight: Bool
-    var replacedRearLeft: Bool
-    var replacedRearRight: Bool
+    var replacedFrontLeft: Bool = false
+    var replacedFrontRight: Bool = false
+    var replacedRearLeft: Bool = false
+    var replacedRearRight: Bool = false
     
     var car: Car?
     

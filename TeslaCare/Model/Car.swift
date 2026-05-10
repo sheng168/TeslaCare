@@ -11,11 +11,11 @@ import SwiftData
 // MARK: - Car Model
 @Model
 final class Car {
-    var name: String
-    var make: String
-    var model: String
-    var year: Int
-    var dateAdded: Date
+    var name: String = ""
+    var make: String = ""
+    var model: String = ""
+    var year: Int = 0
+    var dateAdded: Date = Date()
     var vin: String?
 
     @Relationship(deleteRule: .cascade, inverse: \MileageReading.car)

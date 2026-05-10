@@ -8,7 +8,7 @@ import SwiftData
 
 @Model
 final class TPMSReading {
-    var date: Date
+    var date: Date = Date()
     var frontLeft: Double?
     var frontRight: Double?
     var rearLeft: Double?
