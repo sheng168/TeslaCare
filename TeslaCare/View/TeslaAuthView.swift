@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import Combine
+import Foundation
 import TeslaSwift
 import AuthenticationServices
 
@@ -23,17 +24,20 @@ class TeslaAuthManager: ObservableObject {
     private let clientID = "b7b3546b95f7-453c-ac19-5efbd8d3bd35"
     private let clientSecret = "ta-secret.6zpdiNudRJvDZ-P_"
     private let redirectURI = "teslacare://fob.jsy.us/login"
-    
-    // Store tokens securely in Keychain in production
-    @AppStorage("teslaAccessToken") private var storedAccessToken: String?
-    @AppStorage("teslaRefreshToken") private var storedRefreshToken: String?
-    @AppStorage("teslaTokenExpiry") private var storedTokenExpiry: Double?
-    
+
+    private var modelContext: ModelContext?
+
     init() {
         setupAPI()
+    }
+
+    /// Called once the SwiftData ModelContext is available (from TeslaCareApp.onAppear).
+    func setup(context: ModelContext) {
+        guard modelContext == nil else { return }
+        modelContext = context
         checkExistingAuth()
     }
-    
+
     private func setupAPI() {
         api = TeslaSwift(teslaAPI: .fleetAPI(
             region: .northAmericaAsiaPacific,
@@ -44,86 +48,81 @@ class TeslaAuthManager: ObservableObject {
         ))
         api?.debuggingEnabled = true
     }
-    
+
+    private func credential() -> TeslaCredential {
+        let existing = try? modelContext?.fetch(FetchDescriptor<TeslaCredential>())
+        if let cred = existing?.first { return cred }
+        let cred = TeslaCredential()
+        modelContext?.insert(cred)
+        return cred
+    }
+
+    private func saveTokens(access: String?, refresh: String?, expiry: Double?) {
+        let cred = credential()
+        cred.accessToken = access
+        cred.refreshToken = refresh
+        cred.tokenExpiry = expiry
+    }
+
     private func checkExistingAuth() {
-        guard let accessToken = storedAccessToken,
-              let refreshToken = storedRefreshToken,
-              let expiry = storedTokenExpiry else {
+        let cred = credential()
+        guard let accessToken = cred.accessToken,
+              let refreshToken = cred.refreshToken,
+              let expiry = cred.tokenExpiry else {
             isAuthenticated = false
             return
         }
-        
-        // Check if token is still valid
+
         let expiryDate = Date(timeIntervalSince1970: expiry)
         if expiryDate > Date() {
             let token = AuthToken(accessToken: accessToken)
             token.refreshToken = refreshToken
             api?.reuse(token: token)
             isAuthenticated = true
-            
-            // Fetch vehicles in background
-            Task {
-                await fetchVehicles()
-            }
+            Task { await fetchVehicles() }
         } else {
-            // Try to refresh the token
-            Task {
-                _ = try await api?.refreshToken()
-            }
+            Task { _ = try? await api?.refreshToken() }
         }
     }
-    
+
     func getAuthorizationURL() -> URL? {
         return api?.authenticateWebNativeURL()
     }
-    
+
     func authenticate(callbackURL: URL) async {
         guard let api = api else {
             errorMessage = "API not initialized"
             return
         }
-        
+
         isLoading = true
         errorMessage = nil
-        
+
         do {
-            // Exchange the authorization code in the callback URL for tokens
             let token = try await api.authenticateWebNative(url: callbackURL)
-            
-            // Store tokens
-            storedAccessToken = token.accessToken
-            storedRefreshToken = token.refreshToken
-            if let expiresIn = token.expiresIn {
-                storedTokenExpiry = Date().addingTimeInterval(expiresIn).timeIntervalSince1970
-            }
-            
+            let expiry = token.expiresIn.map { Date().addingTimeInterval($0).timeIntervalSince1970 }
+            saveTokens(access: token.accessToken, refresh: token.refreshToken, expiry: expiry)
             isAuthenticated = true
             await fetchVehicles()
         } catch {
             errorMessage = "Authentication failed: \(error.localizedDescription)"
             isAuthenticated = false
         }
-        
+
         isLoading = false
     }
-    
+
     func refreshToken() async {
-        guard let api = api,
-              storedRefreshToken != nil else {
+        guard let api = api, credential().refreshToken != nil else {
             logout()
             return
         }
-        
+
         do {
             _ = try await api.refreshToken()
-            
-            // Update stored tokens
             if let token = api.token {
-                storedAccessToken = token.accessToken
-                storedRefreshToken = token.refreshToken
-                if let expiresIn = token.expiresIn {
-                    storedTokenExpiry = Date().addingTimeInterval(expiresIn).timeIntervalSince1970
-                }
+                let expiry = token.expiresIn.map { Date().addingTimeInterval($0).timeIntervalSince1970 }
+                saveTokens(access: token.accessToken, refresh: token.refreshToken, expiry: expiry)
                 isAuthenticated = true
             }
         } catch {
@@ -166,17 +165,12 @@ class TeslaAuthManager: ObservableObject {
     }
     
     func logout() {
-        storedAccessToken = nil
-        storedRefreshToken = nil
-        storedTokenExpiry = nil
+        saveTokens(access: nil, refresh: nil, expiry: nil)
         isAuthenticated = false
         vehicles = []
         vehicleData = [:]
-
-        // Create an empty token to clear the API's stored token
         if let api = api {
-            let emptyToken = AuthToken(accessToken: "")
-            api.reuse(token: emptyToken)
+            api.reuse(token: AuthToken(accessToken: ""))
         }
     }
 

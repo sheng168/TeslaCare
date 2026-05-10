@@ -23,6 +23,7 @@ struct TeslaCareApp: App {
             AirFilterChangeEvent.self,
             TPMSReading.self,
             MileageReading.self,
+            TeslaCredential.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -38,6 +39,9 @@ struct TeslaCareApp: App {
             MainTabView()
                 .environment(locationManager)
                 .environmentObject(authManager)
+                .onAppear {
+                    authManager.setup(context: sharedModelContainer.mainContext)
+                }
         }
         .modelContainer(sharedModelContainer)
     }
