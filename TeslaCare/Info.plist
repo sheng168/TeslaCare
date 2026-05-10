@@ -8,6 +8,8 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TeslaCare uses your location to show how far away your car is.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>TeslaCare uses the camera to photograph tire tread for your records.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -127,6 +127,14 @@ struct MeasurementRowView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+
+                if let data = measurement.photoData, let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
             }
         }
         .padding()

@@ -7,26 +7,32 @@
 
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 struct AddMeasurementView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
+
     let car: Car
     let preselectedPosition: TirePosition?
-    
+
     @State private var selectedPosition: TirePosition
     @State private var treadDepth: Double = 8.0
     @State private var date = Date()
     @State private var notes = ""
     @State private var mileage = ""
     @State private var includeMileage = false
-    
+
     // Multiple measurements for uneven wear
     @State private var useMultipleMeasurements = false
     @State private var innerTreadDepth: Double = 8.0
     @State private var centerTreadDepth: Double = 8.0
     @State private var outerTreadDepth: Double = 8.0
+
+    // Photo
+    @State private var selectedPhoto: UIImage?
+    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var showingCamera = false
     
     init(car: Car, preselectedPosition: TirePosition? = nil) {
         self.car = car
@@ -380,18 +386,68 @@ struct AddMeasurementView: View {
                 
                 Section("Additional Information") {
                     Toggle("Include Mileage", isOn: $includeMileage)
-                    
+
                     if includeMileage {
                         TextField("Mileage", text: $mileage)
                             .keyboardType(.numberPad)
                     }
-                    
+
                     TextField("Notes (optional)", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
+                }
+
+                Section("Photo") {
+                    if let photo = selectedPhoto {
+                        Image(uiImage: photo)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: 220)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+
+                        Button("Remove Photo", role: .destructive) {
+                            selectedPhoto = nil
+                            photoPickerItem = nil
+                        }
+                    } else {
+                        HStack(spacing: 16) {
+                            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                                Button {
+                                    showingCamera = true
+                                } label: {
+                                    Label("Camera", systemImage: "camera.fill")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.bordered)
+
+                                Divider().frame(height: 28)
+                            }
+
+                            PhotosPicker(selection: $photoPickerItem, matching: .images) {
+                                Label("Library", systemImage: "photo.on.rectangle")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
             .navigationTitle("Add Measurement")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: photoPickerItem) { _, newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        selectedPhoto = image
+                    }
+                }
+            }
+            .sheet(isPresented: $showingCamera) {
+                ImagePickerView(sourceType: .camera, selectedImage: $selectedPhoto)
+                    .ignoresSafeArea()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -464,6 +520,7 @@ struct AddMeasurementView: View {
         }
         
         measurement.car = car
+        measurement.photoData = selectedPhoto?.jpegData(compressionQuality: 0.7)
         modelContext.insert(measurement)
         NotificationManager.scheduleUpdateReminder(for: car)
         dismiss()

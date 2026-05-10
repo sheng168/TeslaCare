@@ -21,6 +21,8 @@ final class TireMeasurement {
     var innerTreadDepth: Double? // Inner edge measurement
     var centerTreadDepth: Double? // Center measurement
     var outerTreadDepth: Double? // Outer edge measurement
+
+    var photoData: Data? // JPEG photo of the tire tread
     
     var car: Car?
     var tire: Tire? // Non-optional - every measurement must be associated with a tire
