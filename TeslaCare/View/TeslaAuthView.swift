@@ -155,7 +155,7 @@ class TeslaAuthManager: ObservableObject {
             for vehicle in vehicles {
                 guard let vin = vehicle.vin else { continue }
                 group.addTask {
-                    let data = try? await api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState])
+                    let data = try? await api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState])
                     return (vin, data)
                 }
             }
@@ -387,7 +387,8 @@ struct TeslaAuthView: View {
                     frontLeft: state.tpms_pressure_fl,
                     frontRight: state.tpms_pressure_fr,
                     rearLeft: state.tpms_pressure_rl,
-                    rearRight: state.tpms_pressure_rr
+                    rearRight: state.tpms_pressure_rr,
+                    outsideTemperature: authManager.vehicleData[vin]?.climateState?.outsideTemperature?.value.converted(to: .celsius).value
                 )
                 reading.car = car
                 modelContext.insert(reading)

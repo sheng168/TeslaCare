@@ -26,54 +26,8 @@ struct CarDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Car Info Header
-                VStack(spacing: 8) {
-                    Text(car.displayName)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                carHeaderSection
 
-                    if let mileage = car.mileage {
-                        Text("\(mileage.formatted()) mi")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if let health = car.tireHealthPercentage {
-                        VStack(spacing: 8) {
-                            Text("Overall Tire Health")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            
-                            HStack(spacing: 12) {
-                                ProgressView(value: health, total: 100)
-                                    .tint(healthColor(for: health))
-                                    .frame(maxWidth: 200)
-                                
-                                Text("\(Int(health))%")
-                                    .font(.title3)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(healthColor(for: health))
-                            }
-                            
-                            if let avg = car.averageTreadDepth {
-                                Text(String(format: "Average: %.1f/32\"", avg))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: .black.opacity(0.1), radius: 5)
-                    }
-                }
-                .padding()
-                
-                // TPMS Summary
                 if car.latestTPMSReading != nil {
                     TPMSSummaryView(car: car)
                         .padding(.horizontal)
@@ -81,108 +35,14 @@ struct CarDetailView: View {
                         .padding(.horizontal)
                 }
 
-                // Tire Grid
                 TireGridView(car: car, selectedPosition: $selectedPosition)
                     .padding(.horizontal)
-                
-                // Action Buttons
-                HStack(spacing: 12) {
-                    Button(action: { showingRotateTires = true }) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.title2)
-                            Text("Rotate")
-                                .font(.subheadline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    
-                    Button(action: { showingReplaceTires = true }) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
-                            Text("Replace")
-                                .font(.subheadline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                }
-                .padding(.horizontal)
-                
-                // Rotation History
-                if let rotations = car.rotationEvents?.sorted(by: { $0.date > $1.date }), !rotations.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Rotation History")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        ForEach(rotations) { rotation in
-                            RotationEventRow(rotation: rotation)
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding(.top)
-                }
-                
-                // Replacement History
-                if let replacements = car.replacementEvents?.sorted(by: { $0.date > $1.date }), !replacements.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Replacement History")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        ForEach(replacements) { replacement in
-                            ReplacementEventRow(replacement: replacement)
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding(.top)
-                }
-                
-                // Air Filter History
-                if let airFilters = car.airFilterChanges?.sorted(by: { $0.date > $1.date }), !airFilters.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Air Filter Changes")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        ForEach(airFilters) { filterChange in
-                            AirFilterChangeRow(filterChange: filterChange)
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding(.top)
-                }
-                
-                // Measurements History
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Measurement History")
-                        .font(.headline)
-                        .padding(.horizontal)
-                    
-                    if sortedMeasurements.isEmpty {
-                        ContentUnavailableView(
-                            "No Measurements",
-                            systemImage: "gauge.with.dots.needle.0percent",
-                            description: Text("Add tire measurements to track tread depth over time")
-                        )
-                        .frame(height: 200)
-                    } else {
-                        ForEach(sortedMeasurements) { measurement in
-                            MeasurementRowView(measurement: measurement)
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                .padding(.top)
+
+                actionButtons
+                rotationHistorySection
+                replacementHistorySection
+                airFilterHistorySection
+                measurementHistorySection
             }
             .padding(.vertical)
         }
@@ -225,6 +85,164 @@ struct CarDetailView: View {
         }
     }
     
+    // MARK: - Sections
+
+    @ViewBuilder
+    private var carHeaderSection: some View {
+        VStack(spacing: 8) {
+            Text(car.displayName)
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if let mileage = car.mileage {
+                Text("\(mileage.formatted()) mi")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let health = car.tireHealthPercentage {
+                tireHealthCard(health)
+            }
+        }
+        .padding()
+    }
+
+    @ViewBuilder
+    private func tireHealthCard(_ health: Double) -> some View {
+        VStack(spacing: 8) {
+            Text("Overall Tire Health")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+                ProgressView(value: health, total: 100)
+                    .tint(healthColor(for: health))
+                    .frame(maxWidth: 200)
+
+                Text("\(Int(health))%")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(healthColor(for: health))
+            }
+
+            if let avg = car.averageTreadDepth {
+                Text(String(format: "Average: %.1f/32\"", avg))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.1), radius: 5)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 12) {
+            actionButton("Rotate", icon: "arrow.triangle.2.circlepath", color: .blue) {
+                showingRotateTires = true
+            }
+            actionButton("Replace", icon: "plus.circle.fill", color: .green) {
+                showingReplaceTires = true
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private func actionButton(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.title2)
+                Text(title)
+                    .font(.subheadline)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(color)
+            .foregroundStyle(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    @ViewBuilder
+    private var rotationHistorySection: some View {
+        if let rotations = car.rotationEvents?.sorted(by: { $0.date > $1.date }), !rotations.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Rotation History")
+                    .font(.headline)
+                    .padding(.horizontal)
+                ForEach(rotations) { rotation in
+                    RotationEventRow(rotation: rotation)
+                }
+                .padding(.horizontal)
+            }
+            .padding(.top)
+        }
+    }
+
+    @ViewBuilder
+    private var replacementHistorySection: some View {
+        if let replacements = car.replacementEvents?.sorted(by: { $0.date > $1.date }), !replacements.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Replacement History")
+                    .font(.headline)
+                    .padding(.horizontal)
+                ForEach(replacements) { replacement in
+                    ReplacementEventRow(replacement: replacement)
+                }
+                .padding(.horizontal)
+            }
+            .padding(.top)
+        }
+    }
+
+    @ViewBuilder
+    private var airFilterHistorySection: some View {
+        if let airFilters = car.airFilterChanges?.sorted(by: { $0.date > $1.date }), !airFilters.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Air Filter Changes")
+                    .font(.headline)
+                    .padding(.horizontal)
+                ForEach(airFilters) { filterChange in
+                    AirFilterChangeRow(filterChange: filterChange)
+                }
+                .padding(.horizontal)
+            }
+            .padding(.top)
+        }
+    }
+
+    @ViewBuilder
+    private var measurementHistorySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Measurement History")
+                .font(.headline)
+                .padding(.horizontal)
+
+            if sortedMeasurements.isEmpty {
+                ContentUnavailableView(
+                    "No Measurements",
+                    systemImage: "gauge.with.dots.needle.0percent",
+                    description: Text("Add tire measurements to track tread depth over time")
+                )
+                .frame(height: 200)
+            } else {
+                ForEach(sortedMeasurements) { measurement in
+                    MeasurementRowView(measurement: measurement)
+                }
+                .padding(.horizontal)
+            }
+        }
+        .padding(.top)
+    }
+
+    // MARK: - Helpers
+
     private func healthColor(for percentage: Double) -> Color {
         switch percentage {
         case 50...100: return .green
@@ -756,7 +774,7 @@ struct AirFilterChangeRow: View {
 #Preview {
     NavigationStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TireRotationEvent.self, TireReplacementEvent.self, AirFilterChangeEvent.self, configurations: config)
+        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TireRotationEvent.self, TireReplacementEvent.self, AirFilterChangeEvent.self, TPMSReading.self, MileageReading.self, configurations: config)
         
         let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
         container.mainContext.insert(car)

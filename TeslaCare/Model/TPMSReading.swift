@@ -13,15 +13,17 @@ final class TPMSReading {
     var frontRight: Double?
     var rearLeft: Double?
     var rearRight: Double?
+    var outsideTemperature: Double?  // °C as reported by Tesla API
 
     var car: Car?
 
-    init(date: Date, frontLeft: Double?, frontRight: Double?, rearLeft: Double?, rearRight: Double?) {
+    init(date: Date, frontLeft: Double?, frontRight: Double?, rearLeft: Double?, rearRight: Double?, outsideTemperature: Double? = nil) {
         self.date = date
         self.frontLeft = frontLeft
         self.frontRight = frontRight
         self.rearLeft = rearLeft
         self.rearRight = rearRight
+        self.outsideTemperature = outsideTemperature
     }
 
     func pressure(for position: TirePosition) -> Double? {

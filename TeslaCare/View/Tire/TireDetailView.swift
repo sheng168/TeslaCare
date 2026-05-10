@@ -19,6 +19,26 @@ struct TireDetailView: View {
     var sortedMeasurements: [TireMeasurement] {
         (tire.measurements ?? []).sorted { $0.date > $1.date }
     }
+
+    private struct PressurePoint: Identifiable {
+        let id = UUID()
+        let date: Date
+        let psi: Double
+        let outsideTemperatureC: Double?
+    }
+
+    private var tpmsDataPoints: [PressurePoint] {
+        (tire.car?.tpmsReadings ?? [])
+            .sorted { $0.date < $1.date }
+            .compactMap { reading in
+                guard let bar = reading.pressure(for: tire.position) else { return nil }
+                return PressurePoint(date: reading.date, psi: bar * 14.504, outsideTemperatureC: reading.outsideTemperature)
+            }
+    }
+
+    private var currentPSI: Double? {
+        tire.car?.latestTPMSReading?.pressure(for: tire.position).map { $0 * 14.504 }
+    }
     
     var body: some View {
         ScrollView {
@@ -37,6 +57,11 @@ struct TireDetailView: View {
                 // Tread Depth Chart
                 if sortedMeasurements.count > 1 {
                     treadDepthChart
+                }
+                
+                // TPMS Pressure Chart
+                if !tpmsDataPoints.isEmpty {
+                    tpmsPressureChart
                 }
                 
                 // Latest Measurement
@@ -272,6 +297,69 @@ struct TireDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
+    // MARK: - TPMS Pressure Chart
+
+    private var tpmsYDomain: ClosedRange<Double> {
+        let values = tpmsDataPoints.map(\.psi)
+        let minVal = (values.min() ?? 30) - 5
+        let maxVal = (values.max() ?? 45) + 5
+        return minVal...maxVal
+    }
+
+    @ViewBuilder private var tpmsPressureChart: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Pressure History")
+                    .font(.headline)
+                Spacer()
+                if let psi = currentPSI {
+                    Text(String(format: "%.1f psi", psi))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(psiColor(for: psi))
+                }
+            }
+
+            Chart {
+                ForEach(tpmsDataPoints) { point in
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("PSI", point.psi)
+                    )
+                    .foregroundStyle(Color.blue)
+                    .interpolationMethod(.catmullRom)
+
+                    PointMark(
+                        x: .value("Date", point.date),
+                        y: .value("PSI", point.psi)
+                    )
+                    .foregroundStyle(psiColor(for: point.psi))
+                    .symbolSize(50)
+                }
+            }
+            .frame(height: 200)
+            .chartYScale(domain: tpmsYDomain)
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .stride(by: 5)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let psi = value.as(Double.self) {
+                            Text(String(format: "%.0f", psi))
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                    AxisValueLabel(format: .dateTime.month().day())
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
     // MARK: - Latest Measurement Card
     
     private func latestMeasurementCard(_ measurement: TireMeasurement) -> some View {
@@ -402,6 +490,15 @@ struct TireDetailView: View {
         }
     }
     
+    private func psiColor(for psi: Double) -> Color {
+        switch psi {
+        case ..<28: return .red
+        case 28..<34: return .orange
+        case 34..<48: return .green
+        default: return .orange
+        }
+    }
+
     private func lifeColor(for percentage: Double) -> Color {
         switch percentage {
         case 50...100: return .green
@@ -577,11 +674,11 @@ struct EditTireView: View {
 
 #Preview("Tire Detail - Good Condition") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Tire.self, TireMeasurement.self, Car.self, configurations: config)
-    
+    let container = try! ModelContainer(for: Tire.self, TireMeasurement.self, Car.self, TPMSReading.self, MileageReading.self, configurations: config)
+
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     container.mainContext.insert(car)
-    
+
     let tire = Tire(
         brand: "Michelin",
         modelName: "Pilot Sport 4S",
@@ -597,8 +694,8 @@ struct EditTireView: View {
     )
     tire.car = car
     container.mainContext.insert(tire)
-    
-    // Add multiple measurements
+
+    // Tread depth measurements
     let dates = [
         Date().addingTimeInterval(-150 * 24 * 60 * 60),
         Date().addingTimeInterval(-120 * 24 * 60 * 60),
@@ -609,7 +706,7 @@ struct EditTireView: View {
     ]
     let depths = [10.0, 9.5, 9.0, 8.7, 8.5, 8.2]
     let mileages = [25000, 26500, 28000, 29500, 31000, 32500]
-    
+
     for (index, date) in dates.enumerated() {
         let measurement = TireMeasurement(
             date: date,
@@ -621,7 +718,32 @@ struct EditTireView: View {
         )
         container.mainContext.insert(measurement)
     }
-    
+
+    // TPMS readings — front-left PSI around 42–44 with a dip mid-winter
+    let tpmsDates = [
+        Date().addingTimeInterval(-140 * 24 * 60 * 60),
+        Date().addingTimeInterval(-110 * 24 * 60 * 60),
+        Date().addingTimeInterval(-80 * 24 * 60 * 60),
+        Date().addingTimeInterval(-50 * 24 * 60 * 60),
+        Date().addingTimeInterval(-20 * 24 * 60 * 60),
+        Date()
+    ]
+    let flPsi: [Double] = [42.5, 40.8, 38.2, 41.0, 43.1, 43.8]
+    let outsideTemps: [Double] = [18.0, 8.0, -3.0, 5.0, 14.0, 21.0]
+
+    for (i, date) in tpmsDates.enumerated() {
+        let reading = TPMSReading(
+            date: date,
+            frontLeft: flPsi[i] / 14.504,
+            frontRight: (flPsi[i] + 0.3) / 14.504,
+            rearLeft: (flPsi[i] - 1.0) / 14.504,
+            rearRight: (flPsi[i] - 0.8) / 14.504,
+            outsideTemperature: outsideTemps[i]
+        )
+        reading.car = car
+        container.mainContext.insert(reading)
+    }
+
     return NavigationStack {
         TireDetailView(tire: tire)
     }
@@ -630,7 +752,7 @@ struct EditTireView: View {
 
 #Preview("Tire Detail - Needs Replacement") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Tire.self, TireMeasurement.self, Car.self, configurations: config)
+    let container = try! ModelContainer(for: Tire.self, TireMeasurement.self, Car.self, TPMSReading.self, MileageReading.self, configurations: config)
     
     let car = Car(name: "Work Truck", make: "Ford", model: "F-150", year: 2020)
     container.mainContext.insert(car)
@@ -660,7 +782,27 @@ struct EditTireView: View {
         mileage: 45000
     )
     container.mainContext.insert(measurement)
-    
+
+    // TPMS readings showing slow pressure loss
+    let tpmsData: [(daysAgo: Double, psi: Double, temp: Double)] = [
+        (90, 35.5, 15.0),
+        (60, 33.2, 6.0),
+        (30, 31.0, -1.0),
+        (0,  29.4, 4.0)
+    ]
+    for item in tpmsData {
+        let reading = TPMSReading(
+            date: Date().addingTimeInterval(-item.daysAgo * 24 * 60 * 60),
+            frontLeft: item.psi / 14.504,
+            frontRight: (item.psi + 1.2) / 14.504,
+            rearLeft: item.psi / 14.504,
+            rearRight: (item.psi + 0.5) / 14.504,
+            outsideTemperature: item.temp
+        )
+        reading.car = car
+        container.mainContext.insert(reading)
+    }
+
     return NavigationStack {
         TireDetailView(tire: tire)
     }
