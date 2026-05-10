@@ -21,6 +21,7 @@ struct CarDetailView: View {
     @State private var showingLogAirFilter = false
     @State private var selectedPosition: TirePosition?
     
+    @AppStorage("detail.chargersExpanded") private var chargersExpanded = true
     @AppStorage("detail.pressureExpanded") private var pressureExpanded = true
     @AppStorage("detail.tireGridExpanded") private var tireGridExpanded = true
     @AppStorage("detail.actionsExpanded") private var actionsExpanded = true
@@ -44,6 +45,7 @@ struct CarDetailView: View {
 
                 historyChartsSection
                 pressureSection
+                nearbyChargersSection
 
                 rotationHistorySection
                 replacementHistorySection
@@ -104,6 +106,36 @@ struct CarDetailView: View {
                     Text("Tire Pressure")
                         .font(.headline)
                         .foregroundStyle(.primary)
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private var nearbyChargersSection: some View {
+        let chargers = (car.nearbyChargers ?? []).sorted { $0.distanceMiles < $1.distanceMiles }
+        if !chargers.isEmpty {
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $chargersExpanded) {
+                    VStack(spacing: 8) {
+                        ForEach(chargers.prefix(5), id: \.persistentModelID) { charger in
+                            ChargerRowView(charger: charger)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    HStack {
+                        Text("Nearby Chargers")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if let updated = chargers.first?.updatedAt {
+                            Text(updated, format: .relative(presentation: .named))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
                 }
             }
             .padding(.horizontal)
@@ -542,6 +574,52 @@ struct TPMSHistoryChartView: View {
 }
 
 // MARK: - Tread Depth History Chart
+
+struct ChargerRowView: View {
+    let charger: NearbyCharger
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: charger.chargerType == "supercharger" ? "bolt.fill" : "ev.plug.dc.ccs1.fill")
+                .font(.caption)
+                .foregroundStyle(charger.siteClosed ? Color.secondary : Color.green)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(charger.name)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                if charger.siteClosed {
+                    Text("Closed")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                } else if let avail = charger.availableStalls, let total = charger.totalStalls {
+                    Text("\(avail)/\(total) stalls available")
+                        .font(.caption)
+                        .foregroundStyle(avail > 0 ? Color.green : Color.orange)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                if let kw = charger.estimatedMaxPowerKW {
+                    Text("\(kw) kW")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.85))
+                        .clipShape(Capsule())
+                }
+                Text(String(format: "%.1f mi", charger.distanceMiles))
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
+            }
+        }
+    }
+}
 
 struct TreadDepthHistoryChartView: View {
     let car: Car
@@ -1008,29 +1086,43 @@ struct AirFilterChangeRow: View {
 #Preview {
     NavigationStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TireRotationEvent.self, TireReplacementEvent.self, AirFilterChangeEvent.self, TPMSReading.self, MileageReading.self, configurations: config)
-        
+        let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TireRotationEvent.self, TireReplacementEvent.self, AirFilterChangeEvent.self, TPMSReading.self, MileageReading.self, NearbyCharger.self, configurations: config)
+
         let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
         container.mainContext.insert(car)
-        
+
         // Create tires
         let tire1 = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: .frontLeft)
         tire1.car = car
         container.mainContext.insert(tire1)
-        
+
         let tire2 = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: .frontRight)
         tire2.car = car
         container.mainContext.insert(tire2)
-        
+
         // Create measurements with required tire parameter
         let measurement1 = TireMeasurement(date: Date(), treadDepth: 7.5, position: .frontLeft, tire: tire1, notes: "", mileage: nil)
         measurement1.car = car
         container.mainContext.insert(measurement1)
-        
+
         let measurement2 = TireMeasurement(date: Date().addingTimeInterval(-86400), treadDepth: 3.2, position: .frontRight, tire: tire2, notes: "", mileage: nil)
         measurement2.car = car
         container.mainContext.insert(measurement2)
-        
+
+        // Sample nearby chargers with rawType for kW badge preview
+        let chargers: [(String, String, Double, Int, Int)] = [
+            ("Tesla Supercharger - Downtown", "supercharger_v3", 1.2, 6, 12),
+            ("Tesla Supercharger - Mall", "supercharger_v2", 3.5, 2, 8),
+            ("Tesla Supercharger - Highway", "supercharger_v4", 8.1, 10, 16),
+        ]
+        for (name, rawType, dist, avail, total) in chargers {
+            let c = NearbyCharger(name: name, chargerType: "supercharger", rawType: rawType,
+                                  latitude: nil, longitude: nil, distanceMiles: dist,
+                                  availableStalls: avail, totalStalls: total, siteClosed: false)
+            c.car = car
+            container.mainContext.insert(c)
+        }
+
         return CarDetailView(car: car)
             .modelContainer(container)
             .environment(LocationManager())

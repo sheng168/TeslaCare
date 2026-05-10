@@ -19,6 +19,7 @@ class TeslaAuthManager: ObservableObject {
     @Published var errorMessage: String?
     @Published var vehicles: [Vehicle] = []
     @Published var vehicleData: [String: VehicleExtended] = [:]
+    @Published var vehicleChargingSites: [String: NearbyChargingSites] = [:]
     
     private var api: TeslaSwift?
     private let clientID = "b7b3546b95f7-453c-ac19-5efbd8d3bd35"
@@ -150,16 +151,18 @@ class TeslaAuthManager: ObservableObject {
 
     private func fetchExtendedData(for vehicles: [Vehicle]) async {
         guard let api else { return }
-        await withTaskGroup(of: (String, VehicleExtended?).self) { group in
+        await withTaskGroup(of: (String, VehicleExtended?, NearbyChargingSites?).self) { group in
             for vehicle in vehicles {
                 guard let vin = vehicle.vin else { continue }
                 group.addTask {
-                    let data = try? await api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .driveState])
-                    return (vin, data)
+                    async let extended = try? api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .driveState])
+                    async let nearby = try? api.getNearbyChargingSites(vehicle)
+                    return (vin, await extended, await nearby)
                 }
             }
-            for await (vin, data) in group {
+            for await (vin, data, nearby) in group {
                 if let data { vehicleData[vin] = data }
+                if let nearby { vehicleChargingSites[vin] = nearby }
             }
         }
     }
@@ -234,6 +237,44 @@ class TeslaAuthManager: ObservableObject {
                 if let hdg = driveState.heading { car.heading = hdg }
                 if driveState.latitude != nil { car.locationUpdatedAt = Date() }
             }
+            // Replace nearby charger records with fresh data
+            if let sites = vehicleChargingSites[vin] {
+                // Remove stale records
+                let stale = car.nearbyChargers ?? []
+                for old in stale { context.delete(old) }
+
+                let superchargers = (sites.superchargers ?? []).map { sc in
+                    NearbyCharger(
+                        name: sc.name ?? "Supercharger",
+                        chargerType: "supercharger",
+                        rawType: sc.type,
+                        latitude: sc.location?.latitude,
+                        longitude: sc.location?.longitude,
+                        distanceMiles: sc.distance?.miles ?? 0,
+                        availableStalls: sc.availableStalls,
+                        totalStalls: sc.totalStalls,
+                        siteClosed: sc.siteClosed ?? false
+                    )
+                }
+                let destinations = (sites.destinationChargers ?? []).map { dc in
+                    NearbyCharger(
+                        name: dc.name ?? "Destination Charger",
+                        chargerType: "destination",
+                        rawType: dc.type,
+                        latitude: dc.location?.latitude,
+                        longitude: dc.location?.longitude,
+                        distanceMiles: dc.distance?.miles ?? 0,
+                        availableStalls: nil,
+                        totalStalls: nil,
+                        siteClosed: false
+                    )
+                }
+                for charger in superchargers + destinations {
+                    charger.car = car
+                    context.insert(charger)
+                }
+            }
+
             NotificationManager.scheduleUpdateReminder(for: car)
         }
         lastSyncDate = Date().timeIntervalSince1970

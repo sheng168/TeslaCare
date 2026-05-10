@@ -24,6 +24,7 @@ struct TeslaCareApp: App {
             TPMSReading.self,
             MileageReading.self,
             TeslaCredential.self,
+            NearbyCharger.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
