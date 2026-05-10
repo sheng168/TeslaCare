@@ -7,20 +7,19 @@
 
 import SwiftUI
 import SwiftData
-import Charts
 import CoreLocation
 
 struct CarDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(LocationManager.self) private var locationManager
     let car: Car
-    
+
     @State private var showingAddMeasurement = false
     @State private var showingRotateTires = false
     @State private var showingReplaceTires = false
     @State private var showingLogAirFilter = false
     @State private var selectedPosition: TirePosition?
-    
+
     @AppStorage("detail.chargersExpanded") private var chargersExpanded = true
     @AppStorage("detail.pressureExpanded") private var pressureExpanded = true
     @AppStorage("detail.tireGridExpanded") private var tireGridExpanded = true
@@ -30,11 +29,11 @@ struct CarDetailView: View {
     @AppStorage("detail.replacementExpanded") private var replacementExpanded = true
     @AppStorage("detail.airFilterExpanded") private var airFilterExpanded = true
     @AppStorage("detail.measurementsExpanded") private var measurementsExpanded = true
-    
+
     var sortedMeasurements: [TireMeasurement] {
         (car.measurements ?? []).sorted { $0.date > $1.date }
     }
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -62,7 +61,7 @@ struct CarDetailView: View {
                     Label("Add Measurement", systemImage: "plus")
                 }
             }
-            
+
             ToolbarItem(placement: .secondaryAction) {
                 Button(action: { showingLogAirFilter = true }) {
                     Label("Log Air Filter", systemImage: "air.purifier.fill")
@@ -92,7 +91,7 @@ struct CarDetailView: View {
             }
         }
     }
-    
+
     // MARK: - Sections
 
     @ViewBuilder
@@ -423,666 +422,6 @@ struct CarDetailView: View {
     }
 }
 
-// MARK: - TPMS Summary
-struct TPMSSummaryView: View {
-    let car: Car
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("Tire Pressure", systemImage: "gauge.with.needle")
-                    .font(.headline)
-                Spacer()
-                if let updated = car.tpmsUpdatedAt {
-                    Text(updated, style: .relative)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            HStack(spacing: 0) {
-                let r = car.latestTPMSReading
-                pressureCell("Front Left",  bar: r?.frontLeft)
-                Divider()
-                pressureCell("Front Right", bar: r?.frontRight)
-                Divider()
-                pressureCell("Rear Left",   bar: r?.rearLeft)
-                Divider()
-                pressureCell("Rear Right",  bar: r?.rearRight)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.08), radius: 4)
-    }
-
-    @ViewBuilder
-    private func pressureCell(_ label: String, bar: Double?) -> some View {
-        let psi = bar.map { $0 * 14.504 }
-        let color: Color = {
-            guard let psi else { return .secondary }
-            if psi < 28 { return .red }
-            if psi < 36 { return .orange }
-            return .primary
-        }()
-        VStack(spacing: 4) {
-            Text(psi.map { String(format: "%.0f", $0) } ?? "--")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .foregroundStyle(color)
-            Text("PSI")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-    }
-}
-
-// MARK: - TPMS History Chart
-
-struct TPMSHistoryChartView: View {
-    let car: Car
-    var chartHeight: CGFloat = 200
-
-    private struct DataPoint: Identifiable {
-        let id = UUID()
-        let date: Date
-        let psi: Double
-        let label: String
-    }
-
-    private var dataPoints: [DataPoint] {
-        let readings = (car.tpmsReadings ?? []).sorted { $0.date < $1.date }
-        return readings.flatMap { reading in
-            TirePosition.allCases.compactMap { position in
-                guard let bar = reading.pressure(for: position) else { return nil }
-                return DataPoint(date: reading.date, psi: bar * 14.504, label: position.abbreviation)
-            }
-        }
-    }
-
-    private var yDomain: ClosedRange<Double> {
-        let values = dataPoints.map(\.psi)
-        let lo = (values.min() ?? 30) - 3
-        let hi = (values.max() ?? 50) + 3
-        return lo...hi
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Pressure History")
-                .font(.headline)
-
-            if dataPoints.isEmpty {
-                Text("Sync your Tesla to build pressure history")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 80)
-                    .multilineTextAlignment(.center)
-            } else {
-                Chart(dataPoints) { point in
-                    LineMark(
-                        x: .value("Date", point.date),
-                        y: .value("PSI", point.psi)
-                    )
-                    .foregroundStyle(by: .value("Tire", point.label))
-                    .interpolationMethod(.catmullRom)
-
-                    PointMark(
-                        x: .value("Date", point.date),
-                        y: .value("PSI", point.psi)
-                    )
-                    .foregroundStyle(by: .value("Tire", point.label))
-                    .symbolSize(25)
-                }
-                .chartYScale(domain: yDomain)
-                .chartYAxis {
-                    AxisMarks(values: .stride(by: 5)) { value in
-                        AxisGridLine()
-                        AxisValueLabel {
-                            if let psi = value.as(Double.self) {
-                                Text("\(Int(psi))")
-                                    .font(.caption2)
-                            }
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                    }
-                }
-                .chartLegend(position: .bottom, alignment: .leading)
-                .frame(height: chartHeight)
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.08), radius: 4)
-    }
-}
-
-// MARK: - Tread Depth History Chart
-
-struct ChargerRowView: View {
-    let charger: NearbyCharger
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: charger.chargerType == "supercharger" ? "bolt.fill" : "ev.plug.dc.ccs1.fill")
-                .font(.caption)
-                .foregroundStyle(charger.siteClosed ? Color.secondary : Color.green)
-                .frame(width: 20)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(charger.name)
-                    .font(.subheadline)
-                    .lineLimit(1)
-                if charger.siteClosed {
-                    Text("Closed")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                } else if let avail = charger.availableStalls, let total = charger.totalStalls {
-                    Text("\(avail)/\(total) stalls available")
-                        .font(.caption)
-                        .foregroundStyle(avail > 0 ? Color.green : Color.orange)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 2) {
-                if let kw = charger.estimatedMaxPowerKW {
-                    Text("\(kw) kW")
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.85))
-                        .clipShape(Capsule())
-                }
-                Text(String(format: "%.1f mi", charger.distanceMiles))
-                    .font(.caption)
-                    .foregroundStyle(Color.secondary)
-            }
-        }
-    }
-}
-
-struct TreadDepthHistoryChartView: View {
-    let car: Car
-    var chartHeight: CGFloat = 200
-
-    private struct DataPoint: Identifiable {
-        let id = UUID()
-        let date: Date
-        let depth: Double
-        let label: String
-    }
-
-    private var dataPoints: [DataPoint] {
-        (car.measurements ?? [])
-            .sorted { $0.date < $1.date }
-            .map { m in
-                DataPoint(date: m.date, depth: m.treadDepth, label: m.position.abbreviation)
-            }
-    }
-
-    private var yDomain: ClosedRange<Double> {
-        let values = dataPoints.map(\.depth)
-        let lo = max(0, (values.min() ?? 2) - 1)
-        let hi = (values.max() ?? 10) + 1
-        return lo...hi
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Tread History")
-                .font(.headline)
-
-            if dataPoints.isEmpty {
-                Text("Add measurements to build tread history")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 80)
-                    .multilineTextAlignment(.center)
-            } else {
-                Chart {
-                    ForEach(dataPoints) { point in
-                        LineMark(
-                            x: .value("Date", point.date),
-                            y: .value("Depth", point.depth)
-                        )
-                        .foregroundStyle(by: .value("Tire", point.label))
-                        .interpolationMethod(.catmullRom)
-
-                        PointMark(
-                            x: .value("Date", point.date),
-                            y: .value("Depth", point.depth)
-                        )
-                        .foregroundStyle(by: .value("Tire", point.label))
-                        .symbolSize(25)
-                    }
-
-                    RuleMark(y: .value("Warning", 4.0))
-                        .foregroundStyle(.orange.opacity(0.5))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-
-                    RuleMark(y: .value("Replace", 2.0))
-                        .foregroundStyle(.red.opacity(0.5))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                }
-                .chartYScale(domain: yDomain)
-                .chartYAxis {
-                    AxisMarks(values: .stride(by: 2)) { value in
-                        AxisGridLine()
-                        AxisValueLabel {
-                            if let d = value.as(Double.self) {
-                                Text("\(Int(d))")
-                                    .font(.caption2)
-                            }
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                    }
-                }
-                .chartLegend(position: .bottom, alignment: .leading)
-                .frame(height: chartHeight)
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.08), radius: 4)
-    }
-}
-
-// MARK: - Measurement Row View
-struct MeasurementRowView: View {
-    let measurement: TireMeasurement
-    
-    var body: some View {
-        HStack(alignment: .top) {
-            Image(systemName: measurement.position.systemImage)
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .frame(width: 30)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(measurement.position.rawValue)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    if measurement.isDanger {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                    } else if measurement.isWarning {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundStyle(.orange)
-                            .font(.caption)
-                    }
-                }
-                
-                Text(measurement.date, format: .dateTime.month().day().year())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                
-                // Show detailed measurements if available
-                if measurement.hasMultiplePoints,
-                   let inner = measurement.innerTreadDepth,
-                   let center = measurement.centerTreadDepth,
-                   let outer = measurement.outerTreadDepth {
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Divider()
-                            .padding(.vertical, 2)
-                        
-                        Text("Detailed Measurements")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                        
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Inner")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(String(format: "%.1f/32\"", inner))
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(treadColorForValue(inner))
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Center")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(String(format: "%.1f/32\"", center))
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(treadColorForValue(center))
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Outer")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(String(format: "%.1f/32\"", outer))
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(treadColorForValue(outer))
-                            }
-                        }
-                        
-                        // Show wear pattern description
-                        if let wearPattern = measurement.wearPatternDescription {
-                            HStack(spacing: 4) {
-                                if measurement.hasUnevenWear {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundStyle(.orange)
-                                        .font(.caption2)
-                                }
-                                Text(wearPattern)
-                                    .font(.caption2)
-                                    .foregroundStyle(measurement.hasUnevenWear ? .orange : .secondary)
-                            }
-                            .padding(.top, 2)
-                        }
-                    }
-                }
-                
-                if !measurement.notes.isEmpty {
-                    Text(measurement.notes)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .padding(.top, 2)
-                }
-                
-                if let mileage = measurement.mileage {
-                    Text("\(mileage.formatted()) miles")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(measurement.treadDepthFormatted)
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundStyle(treadColor(for: measurement))
-                
-                if measurement.hasMultiplePoints {
-                    Text("avg")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-    
-    private func treadColor(for measurement: TireMeasurement) -> Color {
-        if measurement.isDanger {
-            return .red
-        } else if measurement.isWarning {
-            return .orange
-        } else {
-            return .green
-        }
-    }
-    
-    private func treadColorForValue(_ value: Double) -> Color {
-        if value <= 2.0 {
-            return .red
-        } else if value <= 4.0 {
-            return .orange
-        } else {
-            return .green
-        }
-    }
-}
-
-// MARK: - Rotation Event Row
-struct RotationEventRow: View {
-    let rotation: TireRotationEvent
-    
-    var body: some View {
-        HStack {
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.title3)
-                .foregroundStyle(.blue)
-                .frame(width: 30)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(rotation.pattern.rawValue)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text(rotation.date, format: .dateTime.month().day().year())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                
-                if !rotation.notes.isEmpty {
-                    Text(rotation.notes)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                
-                if let mileage = rotation.mileage {
-                    Text("\(mileage.formatted()) miles")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            Image(systemName: rotation.pattern.systemImage)
-                .font(.title2)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Replacement Event Row
-struct ReplacementEventRow: View {
-    let replacement: TireReplacementEvent
-    
-    var body: some View {
-        HStack {
-            Image(systemName: "plus.circle.fill")
-                .font(.title3)
-                .foregroundStyle(.green)
-                .frame(width: 30)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(replacement.replacementDescription)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                if !replacement.brand.isEmpty || !replacement.modelName.isEmpty {
-                    Text("\(replacement.brand) \(replacement.modelName)".trimmingCharacters(in: .whitespaces))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Text(replacement.date, format: .dateTime.month().day().year())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                
-                HStack(spacing: 8) {
-                    if let mileage = replacement.mileage {
-                        Text("\(mileage.formatted()) miles")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    if let cost = replacement.cost {
-                        Text("$\(cost, format: .number.precision(.fractionLength(2)))")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                if !replacement.notes.isEmpty {
-                    Text(replacement.notes)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            
-            Spacer()
-            
-            VStack(spacing: 2) {
-                ForEach(replacement.replacedPositions.prefix(2), id: \.self) { position in
-                    Image(systemName: position.systemImage)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                if replacement.replacedCount > 2 {
-                    Text("+\(replacement.replacedCount - 2)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Air Filter Change Row
-struct AirFilterChangeRow: View {
-    let filterChange: AirFilterChangeEvent
-    
-    var body: some View {
-        HStack {
-            Image(systemName: filterChange.filterType.systemImage)
-                .font(.title3)
-                .foregroundStyle(.purple)
-                .frame(width: 30)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(filterChange.filterType.rawValue)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                if !filterChange.brand.isEmpty {
-                    Text(filterChange.brand)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Text(filterChange.date, format: .dateTime.month().day().year())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                
-                HStack(spacing: 8) {
-                    if let mileage = filterChange.mileage {
-                        Text("\(mileage.formatted()) miles")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    if let cost = filterChange.cost {
-                        Text("$\(cost, format: .number.precision(.fractionLength(2)))")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                if !filterChange.partNumber.isEmpty {
-                    Text("Part #: \(filterChange.partNumber)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                
-                if !filterChange.notes.isEmpty {
-                    Text(filterChange.notes)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            
-            Spacer()
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-#Preview("TPMS History Chart — With Data") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TPMSReading.self, configurations: config)
-
-    let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
-    container.mainContext.insert(car)
-
-    // Simulate 6 syncs over 6 weeks with realistic pressure variation (values in bar)
-    let syncDates: [TimeInterval] = [-42, -35, -28, -21, -14, -7, 0].map { $0 * 86400 }
-    let flPsi: [Double] = [42, 41, 40, 38, 39, 41, 42]
-    let frPsi: [Double] = [42, 41, 41, 39, 40, 41, 42]
-    let rlPsi: [Double] = [40, 40, 39, 37, 38, 39, 40]
-    let rrPsi: [Double] = [40, 39, 38, 36, 37, 39, 40]
-
-    for i in syncDates.indices {
-        let reading = TPMSReading(
-            date: Date(timeIntervalSinceNow: syncDates[i]),
-            frontLeft:  flPsi[i] / 14.504,
-            frontRight: frPsi[i] / 14.504,
-            rearLeft:   rlPsi[i] / 14.504,
-            rearRight:  rrPsi[i] / 14.504
-        )
-        reading.car = car
-        container.mainContext.insert(reading)
-    }
-
-    return TPMSHistoryChartView(car: car)
-        .padding()
-        .modelContainer(container)
-}
-
-#Preview("TPMS History Chart — Empty") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TPMSReading.self, configurations: config)
-    let car = Car(name: "New Car", make: "Tesla", model: "Model Y", year: 2024)
-    container.mainContext.insert(car)
-    return TPMSHistoryChartView(car: car)
-        .padding()
-        .modelContainer(container)
-}
-
 #Preview {
     NavigationStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -1091,7 +430,6 @@ struct AirFilterChangeRow: View {
         let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
         container.mainContext.insert(car)
 
-        // Create tires
         let tire1 = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: .frontLeft)
         tire1.car = car
         container.mainContext.insert(tire1)
@@ -1100,7 +438,6 @@ struct AirFilterChangeRow: View {
         tire2.car = car
         container.mainContext.insert(tire2)
 
-        // Create measurements with required tire parameter
         let measurement1 = TireMeasurement(date: Date(), treadDepth: 7.5, position: .frontLeft, tire: tire1, notes: "", mileage: nil)
         measurement1.car = car
         container.mainContext.insert(measurement1)
@@ -1109,7 +446,6 @@ struct AirFilterChangeRow: View {
         measurement2.car = car
         container.mainContext.insert(measurement2)
 
-        // Sample nearby chargers with rawType for kW badge preview
         let chargers: [(String, String, Double, Int, Int)] = [
             ("Tesla Supercharger - Downtown", "supercharger_v3", 1.2, 6, 12),
             ("Tesla Supercharger - Mall", "supercharger_v2", 3.5, 2, 8),
