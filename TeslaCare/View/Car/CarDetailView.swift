@@ -31,9 +31,9 @@ struct CarDetailView: View {
                 if car.latestTPMSReading != nil {
                     TPMSSummaryView(car: car)
                         .padding(.horizontal)
-                    TPMSHistoryChartView(car: car)
-                        .padding(.horizontal)
                 }
+
+                historyChartsSection
 
                 TireGridView(car: car, selectedPosition: $selectedPosition)
                     .padding(.horizontal)
@@ -86,6 +86,19 @@ struct CarDetailView: View {
     }
     
     // MARK: - Sections
+
+    @ViewBuilder
+    private var historyChartsSection: some View {
+        let hasTpms = car.latestTPMSReading != nil
+        let hasMeasurements = !(car.measurements?.isEmpty ?? true)
+        if hasTpms || hasMeasurements {
+            HStack(alignment: .top, spacing: 8) {
+                TPMSHistoryChartView(car: car, chartHeight: 160)
+                TreadDepthHistoryChartView(car: car, chartHeight: 160)
+            }
+            .padding(.horizontal)
+        }
+    }
 
     @ViewBuilder
     private var carHeaderSection: some View {
@@ -320,6 +333,7 @@ struct TPMSSummaryView: View {
 
 struct TPMSHistoryChartView: View {
     let car: Car
+    var chartHeight: CGFloat = 200
 
     private struct DataPoint: Identifiable {
         let id = UUID()
@@ -391,7 +405,101 @@ struct TPMSHistoryChartView: View {
                     }
                 }
                 .chartLegend(position: .bottom, alignment: .leading)
-                .frame(height: 200)
+                .frame(height: chartHeight)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.08), radius: 4)
+    }
+}
+
+// MARK: - Tread Depth History Chart
+
+struct TreadDepthHistoryChartView: View {
+    let car: Car
+    var chartHeight: CGFloat = 200
+
+    private struct DataPoint: Identifiable {
+        let id = UUID()
+        let date: Date
+        let depth: Double
+        let label: String
+    }
+
+    private var dataPoints: [DataPoint] {
+        (car.measurements ?? [])
+            .sorted { $0.date < $1.date }
+            .map { m in
+                DataPoint(date: m.date, depth: m.treadDepth, label: m.position.abbreviation)
+            }
+    }
+
+    private var yDomain: ClosedRange<Double> {
+        let values = dataPoints.map(\.depth)
+        let lo = max(0, (values.min() ?? 2) - 1)
+        let hi = (values.max() ?? 10) + 1
+        return lo...hi
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Tread History")
+                .font(.headline)
+
+            if dataPoints.isEmpty {
+                Text("Add measurements to build tread history")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 80)
+                    .multilineTextAlignment(.center)
+            } else {
+                Chart {
+                    ForEach(dataPoints) { point in
+                        LineMark(
+                            x: .value("Date", point.date),
+                            y: .value("Depth", point.depth)
+                        )
+                        .foregroundStyle(by: .value("Tire", point.label))
+                        .interpolationMethod(.catmullRom)
+
+                        PointMark(
+                            x: .value("Date", point.date),
+                            y: .value("Depth", point.depth)
+                        )
+                        .foregroundStyle(by: .value("Tire", point.label))
+                        .symbolSize(25)
+                    }
+
+                    RuleMark(y: .value("Warning", 4.0))
+                        .foregroundStyle(.orange.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+                    RuleMark(y: .value("Replace", 2.0))
+                        .foregroundStyle(.red.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                }
+                .chartYScale(domain: yDomain)
+                .chartYAxis {
+                    AxisMarks(values: .stride(by: 2)) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let d = value.as(Double.self) {
+                                Text("\(Int(d))")
+                                    .font(.caption2)
+                            }
+                        }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    }
+                }
+                .chartLegend(position: .bottom, alignment: .leading)
+                .frame(height: chartHeight)
             }
         }
         .padding()

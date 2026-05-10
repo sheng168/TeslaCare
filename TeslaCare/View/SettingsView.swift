@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import CloudKit
 import UniformTypeIdentifiers
 import TeslaSwift
 
@@ -19,7 +20,13 @@ struct SettingsView: View {
     @AppStorage("teslaAccessToken") private var teslaAccessToken: String?
     
     @State private var showingTeslaAuth = false
-    
+    @State private var iCloudStatus: CKAccountStatus = .couldNotDetermine
+    @Query private var cars: [Car]
+
+    private var mostRecentUpdate: Date? {
+        cars.compactMap(\.lastUpdatedAt).max()
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -30,6 +37,30 @@ struct SettingsView: View {
                     }
                 }
                 
+                Section("iCloud Sync") {
+                    HStack(spacing: 12) {
+                        Image(systemName: iCloudStatusIcon)
+                            .font(.title3)
+                            .foregroundStyle(iCloudStatusColor)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(iCloudStatusText)
+                                .font(.subheadline)
+                            Text(iCloudStatusDetail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+
+                    if let lastUpdate = mostRecentUpdate {
+                        LabeledContent("Last Updated") {
+                            Text(lastUpdate, style: .relative)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section("Tesla Integration") {
                     Button {
                         showingTeslaAuth = true
@@ -127,12 +158,63 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .task { await fetchiCloudStatus() }
             .sheet(isPresented: $showingTeslaAuth) {
                 TeslaAuthView()
             }
         }
     }
     
+    // MARK: - iCloud Helpers
+
+    private func fetchiCloudStatus() async {
+        do {
+            iCloudStatus = try await CKContainer.default().accountStatus()
+        } catch {
+            iCloudStatus = .couldNotDetermine
+        }
+    }
+
+    private var iCloudStatusIcon: String {
+        switch iCloudStatus {
+        case .available:             return "checkmark.icloud.fill"
+        case .noAccount:             return "icloud.slash.fill"
+        case .restricted:            return "lock.icloud.fill"
+        case .temporarilyUnavailable: return "exclamationmark.icloud.fill"
+        default:                     return "icloud.fill"
+        }
+    }
+
+    private var iCloudStatusColor: Color {
+        switch iCloudStatus {
+        case .available:             return .green
+        case .noAccount:             return .orange
+        case .restricted:            return .red
+        case .temporarilyUnavailable: return .orange
+        default:                     return .secondary
+        }
+    }
+
+    private var iCloudStatusText: String {
+        switch iCloudStatus {
+        case .available:             return "Syncing with iCloud"
+        case .noAccount:             return "Not Signed In"
+        case .restricted:            return "iCloud Restricted"
+        case .temporarilyUnavailable: return "Temporarily Unavailable"
+        default:                     return "Checking…"
+        }
+    }
+
+    private var iCloudStatusDetail: String {
+        switch iCloudStatus {
+        case .available:             return "Your data syncs automatically across devices"
+        case .noAccount:             return "Sign in to iCloud in Settings to enable sync"
+        case .restricted:            return "iCloud access is restricted on this device"
+        case .temporarilyUnavailable: return "iCloud is unavailable — will retry automatically"
+        default:                     return "Determining iCloud availability"
+        }
+    }
+
     private func sendFeedback() {
         // Open mail or feedback form
         if let url = URL(string: "mailto:feedback@example.com") {
