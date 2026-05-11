@@ -95,7 +95,7 @@ enum TireImageProcessor {
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         guard (try? handler.perform([request])) != nil,
               let obs = request.results?.first as? VNSaliencyImageObservation,
-              let objects = try? obs.salientObjects(),
+              let objects = obs.salientObjects,
               let bb = objects.first?.boundingBox else { return nil }
 
         let size = image.size

@@ -29,8 +29,9 @@ struct AddMeasurementView: View {
     @State private var centerTreadDepth: Double = 8.0
     @State private var outerTreadDepth: Double = 8.0
 
-    // Photos
-    @State private var selectedPhotos: [UIImage] = []
+    // Photos — originals saved; processedPhotos[i] is nil while cropping
+    @State private var originalPhotos: [UIImage] = []
+    @State private var processedPhotos: [UIImage?] = []
     @State private var photoPickerItems: [PhotosPickerItem] = []
     @State private var cameraCapture: UIImage?
     @State private var showingCamera = false
@@ -401,17 +402,43 @@ struct AddMeasurementView: View {
 
                 Section("Photos") {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(selectedPhotos.indices, id: \.self) { index in
-                                ZStack(alignment: .topTrailing) {
-                                    Image(uiImage: selectedPhotos[index])
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 100, height: 100)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        HStack(spacing: 12) {
+                            ForEach(originalPhotos.indices, id: \.self) { index in
+                                VStack(spacing: 4) {
+                                    HStack(spacing: 6) {
+                                        Image(uiImage: originalPhotos[index])
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 80, height: 90)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
 
+                                        if let cropped = processedPhotos[index] {
+                                            Image(uiImage: cropped)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 80, height: 90)
+                                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        } else {
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(Color(.secondarySystemBackground))
+                                                .frame(width: 80, height: 90)
+                                                .overlay(ProgressView())
+                                        }
+                                    }
+
+                                    HStack(spacing: 0) {
+                                        Text("Original")
+                                            .frame(width: 80)
+                                        Text("Crop")
+                                            .frame(width: 80)
+                                    }
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                }
+                                .overlay(alignment: .topTrailing) {
                                     Button {
-                                        selectedPhotos.remove(at: index)
+                                        originalPhotos.remove(at: index)
+                                        processedPhotos.remove(at: index)
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .font(.title3)
@@ -449,7 +476,7 @@ struct AddMeasurementView: View {
                     for item in newItems {
                         if let data = try? await item.loadTransferable(type: Data.self),
                            let image = UIImage(data: data) {
-                            selectedPhotos.append(image)
+                            addPhoto(image)
                         }
                     }
                     photoPickerItems = []
@@ -457,7 +484,7 @@ struct AddMeasurementView: View {
             }
             .onChange(of: cameraCapture) { _, image in
                 if let image {
-                    selectedPhotos.append(image)
+                    addPhoto(image)
                     cameraCapture = nil
                 }
             }
@@ -491,6 +518,16 @@ struct AddMeasurementView: View {
         }
     }
     
+    private func addPhoto(_ image: UIImage) {
+        let index = originalPhotos.count
+        originalPhotos.append(image)
+        processedPhotos.append(nil)
+        Task {
+            let cropped = await TireImageProcessor.process(image)
+            processedPhotos[index] = cropped
+        }
+    }
+
     private func treadColor(for depth: Double) -> Color {
         if depth <= 2.0 {
             return .red
@@ -547,7 +584,7 @@ struct AddMeasurementView: View {
         
         measurement.car = car
         modelContext.insert(measurement)
-        for (index, image) in selectedPhotos.enumerated() {
+        for (index, image) in originalPhotos.enumerated() {
             if let data = image.jpegData(compressionQuality: 0.7) {
                 let photo = TirePhoto(data: data, sortIndex: index)
                 photo.measurement = measurement
