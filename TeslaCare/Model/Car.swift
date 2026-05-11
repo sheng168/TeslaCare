@@ -19,6 +19,8 @@ final class Car {
     var vin: String?
     var trimBadging: String?
     var perfConfig: String?
+    var batteryLevel: Int?
+    var chargingState: String?
     var latitude: Double?
     var longitude: Double?
     var heading: Double?

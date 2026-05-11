@@ -155,7 +155,7 @@ class TeslaAuthManager: ObservableObject {
             for vehicle in vehicles {
                 guard let vin = vehicle.vin else { continue }
                 group.addTask {
-                    async let extended = try? api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .driveState])
+                    async let extended = try? api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .driveState, .chargeState])
                     async let nearby = try? api.getNearbyChargingSites(vehicle)
                     return (vin, await extended, await nearby)
                 }
@@ -230,6 +230,10 @@ class TeslaAuthManager: ObservableObject {
                 )
                 reading.car = car
                 context.insert(reading)
+            }
+            if let charge = vehicleData[vin]?.chargeState {
+                if let level = charge.batteryLevel { car.batteryLevel = level }
+                if let state = charge.chargingState { car.chargingState = state.rawValue }
             }
             if let driveState = vehicleData[vin]?.driveState {
                 if let lat = driveState.latitude { car.latitude = lat }

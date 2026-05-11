@@ -15,8 +15,14 @@ struct CarRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(car.displayName)
-                .font(.headline)
+            HStack {
+                Text(car.displayName)
+                    .font(.headline)
+                if let level = car.batteryLevel {
+                    Spacer()
+                    batteryBadge(level: level, chargingState: car.chargingState)
+                }
+            }
 
             HStack(spacing: 8) {
                 Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
@@ -50,11 +56,14 @@ struct CarRowView: View {
                 } else {
                     #if DEBUG
                     Text("No gps")
+                        .foregroundStyle(.tertiary)
                     #endif
                 }
             }
 
-            tireDataView
+            HStack(spacing: 6) {
+                tireDataView
+            }
         }
         .padding(.vertical, 2)
     }
@@ -72,13 +81,13 @@ struct CarRowView: View {
                     }
                     tireCellView(for: position)
                 }
-                if let health = car.tireHealthPercentage {
-                    Spacer()
-                    Text("\(Int(health))%")
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundStyle(healthColor(for: health))
-                }
+//                if let health = car.tireHealthPercentage {
+//                    Spacer()
+//                    Text("\(Int(health))%")
+//                        .font(.caption2)
+//                        .fontWeight(.medium)
+//                        .foregroundStyle(healthColor(for: health))
+//                }
             }
         } else {
             Text("No measurements")
@@ -121,6 +130,28 @@ struct CarRowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func batteryBadge(level: Int, chargingState: String?) -> some View {
+        let isCharging = chargingState == "Charging" || chargingState == "Starting"
+        let color: Color = isCharging ? .blue : (level >= 50 ? .green : level >= 20 ? .orange : .red)
+        let icon: String = {
+            let bolt = isCharging ? "percent" : ""
+            if level >= 88 { return "battery.100\(bolt)" }
+            if level >= 63 { return "battery.75\(bolt)" }
+            if level >= 38 { return "battery.50\(bolt)" }
+            if level >= 13 { return "battery.25\(bolt)" }
+            return "battery.0\(bolt)"
+        }()
+        HStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundStyle(color)
+            Text("\(level)%")
+                .font(.caption2)
+                .foregroundStyle(color)
+        }
     }
 
     private var distanceFromUser: String? {
@@ -168,6 +199,9 @@ struct CarRowView: View {
     let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TPMSReading.self, configurations: config)
 
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
+    car.trimBadging = "lr awd"
+    car.batteryLevel = 82
+    car.chargingState = "Charging"
     container.mainContext.insert(car)
 
     let reading = TPMSReading(date: Date(), frontLeft: 2.93, frontRight: 2.93, rearLeft: 2.76, rearRight: 2.79)
@@ -189,6 +223,7 @@ struct CarRowView: View {
         CarRowView(car: car)
     }
     .modelContainer(container)
+    .environment(LocationManager())
 }
 
 #Preview("Car with Warning Health") {
@@ -213,6 +248,7 @@ struct CarRowView: View {
         CarRowView(car: car)
     }
     .modelContainer(container)
+    .environment(LocationManager())
 }
 
 #Preview("Car with Danger Health") {
@@ -237,6 +273,7 @@ struct CarRowView: View {
         CarRowView(car: car)
     }
     .modelContainer(container)
+    .environment(LocationManager())
 }
 
 #Preview("Car with No Measurements") {
@@ -250,4 +287,5 @@ struct CarRowView: View {
         CarRowView(car: car)
     }
     .modelContainer(container)
+    .environment(LocationManager())
 }

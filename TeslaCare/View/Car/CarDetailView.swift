@@ -222,10 +222,15 @@ struct CarDetailView: View {
                     .clipShape(Capsule())
             }
 
-            if let mileage = car.mileage {
-                Text("\(mileage.formatted()) mi")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                if let mileage = car.mileage {
+                    Text("\(mileage.formatted()) mi")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                if let level = car.batteryLevel {
+                    batteryView(level: level, chargingState: car.chargingState)
+                }
             }
 
             carLocationRow
@@ -296,6 +301,32 @@ struct CarDetailView: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.1), radius: 5)
+    }
+
+    @ViewBuilder
+    private func batteryView(level: Int, chargingState: String?) -> some View {
+        let isCharging = chargingState == "Charging" || chargingState == "Starting"
+        let color: Color = isCharging ? .blue : (level >= 50 ? .green : level >= 20 ? .orange : .red)
+        let icon: String = {
+            let bolt = isCharging ? ".bolt" : ""
+            if level >= 88 { return "battery.100\(bolt)" }
+            if level >= 63 { return "battery.75\(bolt)" }
+            if level >= 38 { return "battery.50\(bolt)" }
+            if level >= 13 { return "battery.25\(bolt)" }
+            return "battery.0\(bolt)"
+        }()
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+            Text("\(level)%")
+                .font(.subheadline)
+                .foregroundStyle(color)
+            if isCharging {
+                Text("Charging")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func actionButton(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
