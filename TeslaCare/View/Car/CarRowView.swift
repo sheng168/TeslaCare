@@ -46,8 +46,8 @@ struct CarRowView: View {
                     Spacer()
                     VStack {
                         if let mileage = car.mileage {
-                            Text("·")
-                                .foregroundStyle(.tertiary)
+//                            Text("·")
+//                                .foregroundStyle(.te	rtiary)
                             Text("\(mileage.formatted()) mi")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -68,10 +68,10 @@ struct CarRowView: View {
 //                                .foregroundStyle(.tertiary)
                             #endif
                         }
-                        Text("\(Int(health))%")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .foregroundStyle(healthColor(for: health))
+//                        Text("\(Int(health))%")
+//                            .font(.caption2)
+//                            .fontWeight(.medium)
+//                            .foregroundStyle(healthColor(for: health))
                     }
                 }
 
@@ -88,6 +88,15 @@ struct CarRowView: View {
         if hasTpms || hasTread {
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 1) {
                 GridRow {
+                    if let health = car.tireHealthPercentage {
+                        Text("\(Int(health))%")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(healthColor(for: health))
+                    } else {
+                        Text("-")
+                    }
+                    
                     ForEach(TirePosition.allCases, id: \.self) { position in
                         Text(position.abbreviation)
                             .font(.caption2.weight(.semibold))
@@ -96,9 +105,13 @@ struct CarRowView: View {
                 }
                 if hasTpms {
                     GridRow {
+                        Text("PSI")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        
                         ForEach(TirePosition.allCases, id: \.self) { position in
                             if let psi = car.tpmsPressure(for: position) {
-                                Text(String(format: "%.0f psi", psi * 14.504))
+                                Text(String(format: "%.0f", psi * 14.504))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             } else {
@@ -109,9 +122,13 @@ struct CarRowView: View {
                 }
                 if hasTread {
                     GridRow {
+                        Text(String(format: "I/32\""))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
                         ForEach(TirePosition.allCases, id: \.self) { position in
                             if let tread = car.latestMeasurement(for: position)?.treadDepth {
-                                Text(String(format: "%.1f/32\"", tread))
+                                Text(String(format: "%.1f", tread))
                                     .font(.caption2)
                                     .foregroundStyle(treadColor(for: tread))
                             } else {
