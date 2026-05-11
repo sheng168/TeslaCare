@@ -56,7 +56,7 @@ struct CarRowView: View {
 
             tireDataView
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
     
     @ViewBuilder
@@ -65,38 +65,24 @@ struct CarRowView: View {
         let hasTread = car.tireHealthPercentage != nil
 
         if hasTpms || hasTread {
-            VStack(alignment: .leading, spacing: 6) {
-                Grid(horizontalSpacing: 16, verticalSpacing: 4) {
-                    GridRow {
-                        tireCellView(for: .frontLeft)
-                        tireCellView(for: .frontRight)
+            HStack(spacing: 6) {
+                ForEach(TirePosition.allCases, id: \.self) { position in
+                    if position != TirePosition.allCases.first {
+                        Text("·").font(.caption2).foregroundStyle(.tertiary)
                     }
-                    GridRow {
-                        tireCellView(for: .rearLeft)
-                        tireCellView(for: .rearRight)
-                    }
+                    tireCellView(for: position)
                 }
-
                 if let health = car.tireHealthPercentage {
-                    HStack(spacing: 8) {
-                        ProgressView(value: health, total: 100)
-                            .tint(healthColor(for: health))
-                            .frame(maxWidth: 150)
-                        Text("\(Int(health))%")
-                            .font(.caption)
-                            .foregroundStyle(healthColor(for: health))
-                    }
-                }
-
-                if let updated = lastUpdatedDate {
-                    Text("Updated \(updated, format: .relative(presentation: .named))")
+                    Spacer()
+                    Text("\(Int(health))%")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .fontWeight(.medium)
+                        .foregroundStyle(healthColor(for: health))
                 }
             }
         } else {
             Text("No measurements")
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }

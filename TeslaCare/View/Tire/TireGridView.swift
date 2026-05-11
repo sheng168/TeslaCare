@@ -13,13 +13,8 @@ struct TireGridView: View {
     @Binding var selectedPosition: TirePosition?
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Tap any tire to add measurement")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            
-            // Front tires
-            HStack(spacing: 20) {
+        HStack(spacing: 8) {
+            VStack(spacing: 12) {
                 TireCardView(
                     position: .frontLeft,
                     measurement: car.latestMeasurement(for: .frontLeft),
@@ -28,25 +23,24 @@ struct TireGridView: View {
                 ) { selectedPosition = .frontLeft }
 
                 TireCardView(
-                    position: .frontRight,
-                    measurement: car.latestMeasurement(for: .frontRight),
-                    tire: getTire(for: .frontRight),
-                    pressureBar: car.tpmsPressure(for: .frontRight)
-                ) { selectedPosition = .frontRight }
-            }
-
-            Image(systemName: "car.top.door.front.left.and.front.right.open")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-
-            // Rear tires
-            HStack(spacing: 20) {
-                TireCardView(
                     position: .rearLeft,
                     measurement: car.latestMeasurement(for: .rearLeft),
                     tire: getTire(for: .rearLeft),
                     pressureBar: car.tpmsPressure(for: .rearLeft)
                 ) { selectedPosition = .rearLeft }
+            }
+
+            Image(systemName: "car.top.door.front.left.and.front.right.open")
+                .font(.system(size: 20))
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 12) {
+                TireCardView(
+                    position: .frontRight,
+                    measurement: car.latestMeasurement(for: .frontRight),
+                    tire: getTire(for: .frontRight),
+                    pressureBar: car.tpmsPressure(for: .frontRight)
+                ) { selectedPosition = .frontRight }
 
                 TireCardView(
                     position: .rearRight,
@@ -93,73 +87,58 @@ struct TireCardView: View {
             
             onTap()
         }) {
-            VStack(spacing: 8) {
-                Image(systemName: position.systemImage)
-                    .font(.title2)
-                    .frame(height: 28)
-                
-                Text(position.rawValue)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                
-                // Show Tire ID/Brand if available
-                Group {
-                    if let tire = tire {
-                        Text(tire.displayName)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    } else {
-                        Text(" ")
-                            .font(.caption2)
-                    }
+            VStack(spacing: 3) {
+                HStack(spacing: 4) {
+                    Image(systemName: position.systemImage)
+                        .font(.caption)
+                    Text(position.rawValue)
+                        .font(.caption)
+                        .fontWeight(.medium)
                 }
-                .frame(height: 14)
-                
-                if let measurement = measurement {
-                    Text(measurement.treadDepthFormatted)
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(treadColor(for: measurement))
-                        .frame(height: 24)
 
-                    Group {
+                if let measurement = measurement {
+                    HStack(spacing: 4) {
+                        Text(measurement.treadDepthFormatted)
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(treadColor(for: measurement))
                         if measurement.isDanger {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.red)
-                                .font(.caption)
+                                .font(.caption2)
                         } else if measurement.isWarning {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundStyle(.orange)
-                                .font(.caption)
-                        } else {
-                            Color.clear
-                                .frame(height: 0)
+                                .font(.caption2)
                         }
                     }
-                    .frame(height: 16)
                 } else {
-                    VStack(spacing: 4) {
-                        Text("No data")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
+                    HStack(spacing: 3) {
                         Image(systemName: "plus.circle.fill")
                             .font(.caption2)
                             .foregroundStyle(.blue)
+                        Text("No data")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
-                    .frame(height: 40)
                 }
 
                 if let psi = pressurePSI {
                     Text(String(format: "%.0f PSI", psi))
                         .font(.caption2)
-                        .fontWeight(.medium)
                         .foregroundStyle(pressureColor)
+                }
+
+                if let tire {
+                    Text(tire.displayName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding()
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
