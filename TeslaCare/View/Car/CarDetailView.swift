@@ -185,7 +185,7 @@ struct CarDetailView: View {
         if hasTpms || hasMeasurements {
             VStack(spacing: 0) {
                 DisclosureGroup(isExpanded: $chartsExpanded) {
-                    HStack(alignment: .top, spacing: 8) {
+                    VStack(spacing: 8) {
                         TPMSHistoryChartView(car: car, chartHeight: 160)
                         TreadDepthHistoryChartView(car: car, chartHeight: 160)
                     }

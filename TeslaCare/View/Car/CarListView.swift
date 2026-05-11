@@ -8,15 +8,34 @@
 import SwiftUI
 import SwiftData
 
+enum CarSortOrder: String, CaseIterable {
+    case lastModified = "Last Modified"
+    case dateAdded = "Date Added"
+    case name = "Name"
+    case mileage = "Mileage"
+    case batteryLevel = "Battery"
+}
+
 struct CarListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Car.dateAdded, order: .reverse) private var cars: [Car]
+    @Query private var cars: [Car]
     @State private var showingAddCar = false
+    @State private var sortOrder: CarSortOrder = .lastModified
+
+    private var sortedCars: [Car] {
+        switch sortOrder {
+        case .lastModified: return cars.sorted { ($0.lastUpdatedAt ?? $0.dateAdded) > ($1.lastUpdatedAt ?? $1.dateAdded) }
+        case .dateAdded:    return cars.sorted { $0.dateAdded > $1.dateAdded }
+        case .name:         return cars.sorted { $0.displayName < $1.displayName }
+        case .mileage:      return cars.sorted { ($0.mileage ?? 0) > ($1.mileage ?? 0) }
+        case .batteryLevel: return cars.sorted { ($0.batteryLevel ?? -1) > ($1.batteryLevel ?? -1) }
+        }
+    }
 
     var body: some View {
         NavigationSplitView {
             List {
-                ForEach(cars) { car in
+                ForEach(sortedCars) { car in
                     NavigationLink {
                         CarDetailView(car: car)
                     } label: {
@@ -29,6 +48,17 @@ struct CarListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Picker("Sort by", selection: $sortOrder) {
+                            ForEach(CarSortOrder.allCases, id: \.self) { order in
+                                Text(order.rawValue).tag(order)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
                 }
                 ToolbarItem {
                     Button(action: { showingAddCar = true }) {
@@ -57,7 +87,7 @@ struct CarListView: View {
     private func deleteCars(offsets: IndexSet) {
         withAnimation {
             for index in offsets {
-                modelContext.delete(cars[index])
+                modelContext.delete(sortedCars[index])
             }
         }
     }
