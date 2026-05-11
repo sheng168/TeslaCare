@@ -36,33 +36,45 @@ struct CarRowView: View {
                         .foregroundStyle(.blue)
                 }
 
-                if let mileage = car.mileage {
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-                    Text("\(mileage.formatted()) mi")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let distanceText = distanceFromUser {
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-                    Image(systemName: "location.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.blue)
-                    Text(distanceText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } else {
-                    #if DEBUG
-                    Text("No gps")
-                        .foregroundStyle(.tertiary)
-                    #endif
-                }
+                
             }
 
             HStack(spacing: 6) {
                 tireDataView
+                
+                if let health = car.tireHealthPercentage {
+                    Spacer()
+                    VStack {
+                        if let mileage = car.mileage {
+                            Text("·")
+                                .foregroundStyle(.tertiary)
+                            Text("\(mileage.formatted()) mi")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let distanceText = distanceFromUser {
+                            Text("·")
+                                .foregroundStyle(.tertiary)
+                            Image(systemName: "location.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                            Text(distanceText)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            #if DEBUG
+//                            Text("No gps")
+//                                .foregroundStyle(.tertiary)
+                            #endif
+                        }
+                        Text("\(Int(health))%")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(healthColor(for: health))
+                    }
+                }
+
             }
         }
         .padding(.vertical, 2)
@@ -74,62 +86,46 @@ struct CarRowView: View {
         let hasTread = car.tireHealthPercentage != nil
 
         if hasTpms || hasTread {
-            HStack(spacing: 6) {
-                ForEach(TirePosition.allCases, id: \.self) { position in
-                    if position != TirePosition.allCases.first {
-                        Text("·").font(.caption2).foregroundStyle(.tertiary)
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 1) {
+                GridRow {
+                    ForEach(TirePosition.allCases, id: \.self) { position in
+                        Text(position.abbreviation)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
-                    tireCellView(for: position)
                 }
-//                if let health = car.tireHealthPercentage {
-//                    Spacer()
-//                    Text("\(Int(health))%")
-//                        .font(.caption2)
-//                        .fontWeight(.medium)
-//                        .foregroundStyle(healthColor(for: health))
-//                }
+                if hasTpms {
+                    GridRow {
+                        ForEach(TirePosition.allCases, id: \.self) { position in
+                            if let psi = car.tpmsPressure(for: position) {
+                                Text(String(format: "%.0f psi", psi * 14.504))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("—").font(.caption2).foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+                if hasTread {
+                    GridRow {
+                        ForEach(TirePosition.allCases, id: \.self) { position in
+                            if let tread = car.latestMeasurement(for: position)?.treadDepth {
+                                Text(String(format: "%.1f/32\"", tread))
+                                    .font(.caption2)
+                                    .foregroundStyle(treadColor(for: tread))
+                            } else {
+                                Text("—").font(.caption2).foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
             }
         } else {
             Text("No measurements")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-    }
-
-    private func tireCellView(for position: TirePosition) -> some View {
-        let psi = car.tpmsPressure(for: position)
-        let tread = car.latestMeasurement(for: position)?.treadDepth
-
-        return HStack(spacing: 4) {
-            Text(position.abbreviation)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            if let psi {
-                Text(String(format: "%.0f psi", psi * 14.504))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            if psi != nil, tread != nil {
-                Text("·")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
-            if let tread {
-                Text(String(format: "%.1f/32\"", tread))
-                    .font(.caption2)
-                    .foregroundStyle(treadColor(for: tread))
-            }
-
-            if psi == nil, tread == nil {
-                Text("—")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -196,13 +192,17 @@ struct CarRowView: View {
 
 #Preview("Car with Good Health") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TPMSReading.self, configurations: config)
+    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TPMSReading.self, MileageReading.self, configurations: config)
 
     let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
     car.trimBadging = "lr awd"
     car.batteryLevel = 82
     car.chargingState = "Charging"
     container.mainContext.insert(car)
+
+    let mileage = MileageReading(date: Date(), mileage: 24_831)
+    mileage.car = car
+    container.mainContext.insert(mileage)
 
     let reading = TPMSReading(date: Date(), frontLeft: 2.93, frontRight: 2.93, rearLeft: 2.76, rearRight: 2.79)
     reading.car = car
