@@ -12,8 +12,18 @@ struct TireListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Tire.installDate, order: .reverse) private var allTires: [Tire]
     @State private var showingAddTire = false
-    @State private var selectedCar: Car?
-    
+
+    private var groupedTires: [(key: String, tires: [Tire])] {
+        var groups: [String: [Tire]] = [:]
+        for tire in allTires {
+            let key = tire.car?.name ?? "Unassigned"
+            groups[key, default: []].append(tire)
+        }
+        return groups
+            .map { (key: $0.key, tires: $0.value) }
+            .sorted { $0.key < $1.key }
+    }
+
     var body: some View {
         NavigationSplitView {
             Group {
@@ -25,14 +35,20 @@ struct TireListView: View {
                     )
                 } else {
                     List {
-                        ForEach(allTires) { tire in
-                            NavigationLink {
-                                TireDetailView(tire: tire)
-                            } label: {
-                                TireRowView(tire: tire)
+                        ForEach(groupedTires, id: \.key) { group in
+                            Section(group.key) {
+                                ForEach(group.tires) { tire in
+                                    NavigationLink {
+                                        TireDetailView(tire: tire)
+                                    } label: {
+                                        TireRowView(tire: tire)
+                                    }
+                                }
+                                .onDelete { offsets in
+                                    deleteTires(group.tires, offsets: offsets)
+                                }
                             }
                         }
-                        .onDelete(perform: deleteTires)
                     }
                 }
             }
@@ -55,11 +71,11 @@ struct TireListView: View {
                 .foregroundStyle(.secondary)
         }
     }
-    
-    private func deleteTires(offsets: IndexSet) {
+
+    private func deleteTires(_ tires: [Tire], offsets: IndexSet) {
         withAnimation {
             for index in offsets {
-                modelContext.delete(allTires[index])
+                modelContext.delete(tires[index])
             }
         }
     }
