@@ -11,10 +11,11 @@ import SwiftData
 struct RotateTiresView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
+
     let car: Car
-    
+
     @State private var selectedPattern: TireRotationPattern = .frontToBack
+    @State private var customMapping: [TirePosition: TirePosition] = TireRotationPattern.frontToBack.rotationMapping()
     @State private var rotationDate = Date()
     @State private var mileage: String = ""
     @State private var notes: String = ""
@@ -82,12 +83,17 @@ struct RotateTiresView: View {
                 }
                 
                 Section {
-                    TireRotationVisualization(pattern: selectedPattern)
-                        .frame(height: 300)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
+                    TireSwapGrid(arrangement: $customMapping) {
+                        selectedPattern = .custom
+                    }
+                    .frame(height: 140)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .padding(.horizontal)
                 } header: {
-                    Text("Visual Guide")
+                    Text("Arrangement")
+                } footer: {
+                    Text(selectedPattern == .custom ? "Custom — drag tiles to reassign positions" : "Drag tiles to create a custom arrangement")
                 }
             }
             .navigationTitle("Rotate Tires")
@@ -103,6 +109,11 @@ struct RotateTiresView: View {
                     Button("Save") {
                         showingConfirmation = true
                     }
+                }
+            }
+            .onChange(of: selectedPattern) { _, newPattern in
+                if newPattern != .custom {
+                    customMapping = newPattern.rotationMapping()
                 }
             }
             .alert("Rotate Tires?", isPresented: $showingConfirmation) {
@@ -127,8 +138,8 @@ struct RotateTiresView: View {
         rotationEvent.car = car
         modelContext.insert(rotationEvent)
         
-        // Get the mapping for this rotation pattern
-        let mapping = selectedPattern.rotationMapping()
+        // Use the live mapping (synced from predefined pattern or customised by drag-drop)
+        let mapping = customMapping
         
         // Get the current tires and their latest measurements
         var currentTireData: [TirePosition: (tire: Tire, measurement: TireMeasurement?)] = [:]
@@ -162,6 +173,93 @@ struct RotateTiresView: View {
         
         try? modelContext.save()
         dismiss()
+    }
+}
+
+// MARK: - Drag-and-Drop Tile Grid
+
+struct TireSwapGrid: View {
+    @Binding var arrangement: [TirePosition: TirePosition]
+    let onSwap: () -> Void
+
+    @State private var dragging: TirePosition?
+    @State private var hoverSlot: TirePosition?
+
+    private func tireAt(slot: TirePosition) -> TirePosition {
+        arrangement.first(where: { $0.value == slot })?.key ?? slot
+    }
+
+    private func slotAt(_ point: CGPoint, in size: CGSize) -> TirePosition {
+        let col = point.x < size.width / 2 ? 0 : 1
+        let row = point.y < size.height / 2 ? 0 : 1
+        let positions: [[TirePosition]] = [[.frontLeft, .frontRight], [.rearLeft, .rearRight]]
+        return positions[row][col]
+    }
+
+    private func performSwap(from: TirePosition, to: TirePosition) {
+        let sourceTire = tireAt(slot: from)
+        let targetTire = tireAt(slot: to)
+        arrangement[sourceTire] = to
+        arrangement[targetTire] = from
+        onSwap()
+    }
+
+    @ViewBuilder
+    private func tileView(slot: TirePosition) -> some View {
+        let tire = tireAt(slot: slot)
+        let isHover = hoverSlot == slot && dragging != nil && dragging != slot
+        let isDragging = dragging == slot
+        VStack(spacing: 2) {
+            Text(slot.abbreviation)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Text(tire.abbreviation)
+                .font(.title3.bold())
+                .foregroundStyle(tire != slot ? Color.accentColor : .primary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(isHover ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(
+                    isHover ? Color.accentColor : (isDragging ? Color.accentColor.opacity(0.5) : Color.clear),
+                    lineWidth: 2
+                )
+        )
+        .opacity(isDragging ? 0.5 : 1.0)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    tileView(slot: .frontLeft)
+                    tileView(slot: .frontRight)
+                }
+                HStack(spacing: 10) {
+                    tileView(slot: .rearLeft)
+                    tileView(slot: .rearRight)
+                }
+            }
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 5)
+                    .onChanged { value in
+                        if dragging == nil {
+                            dragging = slotAt(value.startLocation, in: geo.size)
+                        }
+                        hoverSlot = slotAt(value.location, in: geo.size)
+                    }
+                    .onEnded { value in
+                        defer { dragging = nil; hoverSlot = nil }
+                        guard let from = dragging else { return }
+                        let to = slotAt(value.location, in: geo.size)
+                        guard from != to else { return }
+                        performSwap(from: from, to: to)
+                    }
+            )
+        }
     }
 }
 

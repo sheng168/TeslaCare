@@ -14,7 +14,11 @@ enum TireRotationPattern: String, Codable, CaseIterable {
     case xPattern = "X-Pattern"
     case rearward = "Rearward Cross"
     case forward = "Forward Cross"
-    
+    case custom = "Custom"
+
+    // Exclude .custom from the predefined-pattern picker
+    static var allCases: [TireRotationPattern] { [.frontToBack, .xPattern, .rearward, .forward] }
+
     var description: String {
         switch self {
         case .frontToBack:
@@ -25,19 +29,23 @@ enum TireRotationPattern: String, Codable, CaseIterable {
             return "Front tires cross to rear, rear tires move straight forward"
         case .forward:
             return "Rear tires cross to front, front tires move straight back"
+        case .custom:
+            return "Custom arrangement defined by drag and drop"
         }
     }
-    
+
     var systemImage: String {
         switch self {
         case .frontToBack: return "arrow.up.arrow.down"
         case .xPattern: return "xmark"
         case .rearward: return "arrow.down.backward.and.arrow.up.forward"
         case .forward: return "arrow.up.backward.and.arrow.down.forward"
+        case .custom: return "hand.draw"
         }
     }
-    
-    /// Returns a dictionary mapping old position to new position
+
+    /// Returns a dictionary mapping old position to new position.
+    /// For .custom, returns the identity — callers must use their own mapping.
     func rotationMapping() -> [TirePosition: TirePosition] {
         switch self {
         case .frontToBack:
@@ -68,6 +76,8 @@ enum TireRotationPattern: String, Codable, CaseIterable {
                 .rearLeft: .frontRight,
                 .rearRight: .frontLeft
             ]
+        case .custom:
+            return TirePosition.allCases.reduce(into: [:]) { $0[$1] = $1 }
         }
     }
 }
