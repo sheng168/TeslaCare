@@ -18,10 +18,17 @@ struct CarRowView: View {
             HStack {
                 Text(car.displayName)
                     .font(.headline)
-                if let level = car.batteryLevel {
+                
+                if let mileage = car.mileage {
+//                            Text("·")
+//                                .foregroundStyle(.te    rtiary)
                     Spacer()
-                    batteryBadge(level: level, chargingState: car.chargingState)
+                    Text("\(mileage.formatted()) mi")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
+
+
             }
 
             HStack(spacing: 8) {
@@ -36,45 +43,27 @@ struct CarRowView: View {
                         .foregroundStyle(.blue)
                 }
 
-                
+                if let level = car.batteryLevel {
+                    Spacer()
+                    batteryBadge(level: level, chargingState: car.chargingState)
+                }
             }
 
             HStack(spacing: 6) {
                 tireDataView
-                
-                if let health = car.tireHealthPercentage {
+                #if DEBUG
+                if let distanceText = distanceFromUser {
                     Spacer()
-                    VStack {
-                        if let mileage = car.mileage {
-//                            Text("·")
-//                                .foregroundStyle(.te	rtiary)
-                            Text("\(mileage.formatted()) mi")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let distanceText = distanceFromUser {
-                            Text("·")
-                                .foregroundStyle(.tertiary)
-                            Image(systemName: "location.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.blue)
-                            Text(distanceText)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            #if DEBUG
-//                            Text("No gps")
-//                                .foregroundStyle(.tertiary)
-                            #endif
-                        }
-//                        Text("\(Int(health))%")
-//                            .font(.caption2)
-//                            .fontWeight(.medium)
-//                            .foregroundStyle(healthColor(for: health))
+                    HStack(spacing: 4) {
+                        Image(systemName: "location.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                        Text(distanceText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
-
+                #endif
             }
         }
         .padding(.vertical, 2)

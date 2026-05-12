@@ -20,6 +20,7 @@ struct CarDetailView: View {
     @State private var showingLogAirFilter = false
     @State private var selectedPosition: TirePosition?
 
+    @AppStorage("detail.headerExpanded") private var headerExpanded = true
     @AppStorage("detail.chargersExpanded") private var chargersExpanded = true
     @AppStorage("detail.pressureExpanded") private var pressureExpanded = true
     @AppStorage("detail.tireGridExpanded") private var tireGridExpanded = true
@@ -53,7 +54,7 @@ struct CarDetailView: View {
             }
             .padding(.vertical)
         }
-        .navigationTitle("Tire Tracking")
+        .navigationTitle(car.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -202,44 +203,45 @@ struct CarDetailView: View {
 
     @ViewBuilder
     private var carHeaderSection: some View {
-        VStack(spacing: 8) {
-            Text(car.displayName)
-                .font(.title2)
-                .fontWeight(.bold)
+        VStack(spacing: 0) {
+            DisclosureGroup(isExpanded: $headerExpanded) {
+                VStack(spacing: 8) {
+                    if let summary = car.drivetrainSummary {
+                        Text(summary)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.blue.opacity(0.8))
+                            .clipShape(Capsule())
+                    }
 
-            Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        if let mileage = car.mileage {
+                            Text("\(mileage.formatted()) mi")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let level = car.batteryLevel {
+                            batteryView(level: level, chargingState: car.chargingState)
+                        }
+                    }
 
-            if let summary = car.drivetrainSummary {
-                Text(summary)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.blue.opacity(0.8))
-                    .clipShape(Capsule())
-            }
+                    carLocationRow
 
-            HStack(spacing: 12) {
-                if let mileage = car.mileage {
-                    Text("\(mileage.formatted()) mi")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if let health = car.tireHealthPercentage {
+                        tireHealthCard(health)
+                    }
                 }
-                if let level = car.batteryLevel {
-                    batteryView(level: level, chargingState: car.chargingState)
-                }
-            }
-
-            carLocationRow
-
-            if let health = car.tireHealthPercentage {
-                tireHealthCard(health)
+                .padding(.top, 8)
+            } label: {
+                Text("\(car.year, format: .number.grouping(.never)) \(car.make) \(car.model)")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
             }
         }
-        .padding()
+        .padding(.horizontal)
     }
 
     @ViewBuilder
@@ -363,7 +365,6 @@ struct CarDetailView: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.top)
         }
     }
 
@@ -385,7 +386,6 @@ struct CarDetailView: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.top)
         }
     }
 
@@ -407,7 +407,6 @@ struct CarDetailView: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.top)
         }
     }
 
@@ -439,7 +438,6 @@ struct CarDetailView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top)
     }
 
     // MARK: - Helpers

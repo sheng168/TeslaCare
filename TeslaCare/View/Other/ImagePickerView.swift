@@ -42,6 +42,9 @@ struct ImagePickerView: UIViewControllerRepresentable {
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let image = info[.originalImage] as? UIImage {
                 parent.selectedImage = image
+                if picker.sourceType == .camera {
+                    UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                }
             }
             parent.dismiss()
         }
