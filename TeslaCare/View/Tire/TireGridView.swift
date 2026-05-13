@@ -283,9 +283,7 @@ private struct PreviewWrapper: View {
         position: .frontLeft,
         measurement: measurement,
         tire: tire,
-        onTap: {
-            print("Tapped!")
-        }
+        onTap: {}
     )
     .frame(width: 150)
     .padding()
@@ -311,9 +309,7 @@ private struct PreviewWrapper: View {
         position: .frontRight,
         measurement: measurement,
         tire: tire,
-        onTap: {
-            print("Tapped!")
-        }
+        onTap: {}
     )
     .frame(width: 150)
     .padding()
@@ -339,9 +335,7 @@ private struct PreviewWrapper: View {
         position: .rearLeft,
         measurement: measurement,
         tire: tire,
-        onTap: {
-            print("Tapped!")
-        }
+        onTap: {}
     )
     .frame(width: 150)
     .padding()
@@ -353,9 +347,7 @@ private struct PreviewWrapper: View {
         position: .rearRight,
         measurement: nil,
         tire: nil,
-        onTap: {
-            print("Tapped!")
-        }
+        onTap: {}
     )
     .frame(width: 150)
     .padding()

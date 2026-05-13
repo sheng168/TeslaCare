@@ -8,8 +8,11 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import OSLog
 import UniformTypeIdentifiers
 import TeslaSwift
+
+private let logger = Logger(subsystem: "com.teslacare", category: "Settings")
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -314,12 +317,12 @@ struct ExportDataView: View {
     
     private func exportAsJSON() {
         // Implementation for JSON export
-        print("Exporting as JSON")
+        logger.info("Exporting as JSON")
     }
-    
+
     private func exportAsCSV() {
         // Implementation for CSV export
-        print("Exporting as CSV")
+        logger.info("Exporting as CSV")
     }
 }
 
@@ -364,10 +367,10 @@ struct ImportDataView: View {
         switch result {
         case .success(let urls):
             if let url = urls.first {
-                print("Importing from: \(url)")
+                logger.info("Importing from: \(url)")
             }
         case .failure(let error):
-            print("Import failed: \(error)")
+            logger.error("Import failed: \(error)")
         }
     }
 }

@@ -130,7 +130,7 @@ class TeslaAuthManager: ObservableObject {
                 isAuthenticated = true
             }
         } catch {
-            print("Token refresh failed: \(error)")
+            logger.error("Token refresh failed: \(error)")
             logout()
         }
     }
