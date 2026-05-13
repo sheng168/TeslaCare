@@ -25,6 +25,7 @@ struct CarListView: View {
     @Query private var cars: [Car]
     @State private var showingAddCar = false
     @State private var sortOrder: CarSortOrder = .lastModified
+    @State private var refreshErrorMessage: String?
 
     private var sortedCars: [Car] {
         switch sortOrder {
@@ -34,6 +35,12 @@ struct CarListView: View {
         case .mileage:      return cars.sorted { ($0.mileage ?? 0) > ($1.mileage ?? 0) }
         case .batteryLevel: return cars.sorted { ($0.batteryLevel ?? -1) > ($1.batteryLevel ?? -1) }
         }
+    }
+
+    private var lastSyncedText: String? {
+        guard authManager.lastSyncDate > 0 else { return nil }
+        let date = Date(timeIntervalSince1970: authManager.lastSyncDate)
+        return "Synced " + date.formatted(.relative(presentation: .named))
     }
 
     var body: some View {
@@ -47,10 +54,56 @@ struct CarListView: View {
                     }
                 }
                 .onDelete(perform: deleteCars)
+
+                if let text = lastSyncedText {
+                    Section {
+                        EmptyView()
+                    } footer: {
+                        HStack {
+                            Spacer()
+                            Text(text)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Spacer()
+                        }
+                    }
+                }
             }
             .refreshable {
+                authManager.errorMessage = nil
                 await authManager.fetchVehicles()
-                authManager.syncCars(into: modelContext)
+                if let error = authManager.errorMessage {
+                    withAnimation { refreshErrorMessage = error }
+                } else if authManager.vehicles.isEmpty {
+                    withAnimation { refreshErrorMessage = "No vehicles found. Make sure your Tesla account is connected in Settings." }
+                } else {
+                    withAnimation { refreshErrorMessage = nil }
+                    authManager.syncCars(into: modelContext)
+                }
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if let message = refreshErrorMessage {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.white)
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        Button {
+                            withAnimation { refreshErrorMessage = nil }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .foregroundStyle(.white.opacity(0.8))
+                                .font(.footnote.weight(.semibold))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.red.gradient)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
             .navigationTitle("\(cars.count) Cars")
             .toolbar {
@@ -66,6 +119,11 @@ struct CarListView: View {
                         }
                     } label: {
                         Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if authManager.isLoading {
+                        ProgressView()
                     }
                 }
                 ToolbarItem {
