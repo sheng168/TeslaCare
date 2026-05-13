@@ -33,25 +33,42 @@ struct AddTireView: View {
         NavigationStack {
             Form {
                 Section("Car") {
-                    Picker("Select Car", selection: $selectedCar) {
-                        Text("Select a car").tag(nil as Car?)
+                    Picker("Assign to Car", selection: $selectedCar) {
+                        Text("None").tag(nil as Car?)
                         ForEach(cars) { car in
                             Text(car.displayName).tag(car as Car?)
                         }
                     }
-                    
-                    if cars.isEmpty {
-                        Text("No cars available. Add a car first.")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    }
                 }
-                
-                Section("Tire Details") {
-                    TextField("Brand (e.g., Michelin)", text: $brand)
-                    TextField("Model (e.g., Pilot Sport 4S)", text: $modelName)
-                    TextField("Size (e.g., 235/45R18)", text: $size)
+
+                Section {
+                    HStack {
+                        Text("Brand")
+                        Text("*").foregroundStyle(.red)
+                        Spacer()
+                        TextField("e.g., Michelin", text: $brand)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    HStack {
+                        Text("Model")
+                        Text("*").foregroundStyle(.red)
+                        Spacer()
+                        TextField("e.g., Pilot Sport 4S", text: $modelName)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    HStack {
+                        Text("Size")
+                        Text("*").foregroundStyle(.red)
+                        Spacer()
+                        TextField("e.g., 235/45R18", text: $size)
+                            .multilineTextAlignment(.trailing)
+                    }
                     TextField("DOT Number", text: $dotNumber)
+                } header: {
+                    Text("Tire Details")
+                } footer: {
+                    Text("* Required")
+                        .foregroundStyle(.red)
                 }
                 
                 Section("Position") {
@@ -136,19 +153,12 @@ struct AddTireView: View {
     }
     
     private var canSave: Bool {
-        !brand.isEmpty && 
-        !modelName.isEmpty && 
-        !size.isEmpty &&
-        selectedCar != nil
+        !brand.isEmpty && !modelName.isEmpty && !size.isEmpty
     }
-    
-    private func addTire() {
-        guard let car = selectedCar else {
-            logger.warning("addTire called with no selected car")
-            return
-        }
 
-        logger.info("Adding tire: \(brand) \(modelName) \(size) at \(currentPosition.rawValue) for car: \(car.displayName)")
+    private func addTire() {
+        let carName = selectedCar?.displayName ?? "unassigned"
+        logger.info("Adding tire: \(brand) \(modelName) \(size) at \(currentPosition.rawValue) for car: \(carName)")
         let price = Double(purchasePrice)
         let mileage = Int(mileageAtInstall)
 
@@ -166,7 +176,7 @@ struct AddTireView: View {
             notes: notes
         )
 
-        tire.car = car
+        tire.car = selectedCar
         modelContext.insert(tire)
         logger.info("Tire added successfully: \(tire.displayName)")
         dismiss()

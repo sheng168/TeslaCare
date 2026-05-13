@@ -161,6 +161,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
             .task { await fetchiCloudStatus() }
             .sheet(isPresented: $showingTeslaAuth) {
                 TeslaAuthView()

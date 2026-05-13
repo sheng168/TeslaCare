@@ -56,6 +56,7 @@ struct TireListView: View {
                 }
             }
             .navigationTitle("All \(allTires.count) Tires")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
@@ -188,6 +189,18 @@ struct TireListView: View {
     tire4.car = car
     container.mainContext.insert(tire4)
     
+    // Unassigned tires (no car)
+    let spare1 = Tire(brand: "Michelin", modelName: "Primacy 4", size: "205/55R16",
+                      currentPosition: .frontLeft)
+    container.mainContext.insert(spare1)
+    let spareM = TireMeasurement(date: .now.addingTimeInterval(-30 * 86400), treadDepth: 9.0,
+                                 position: .frontLeft, tire: spare1)
+    container.mainContext.insert(spareM)
+
+    let spare2 = Tire(brand: "Pirelli", modelName: "P Zero", size: "245/40R19",
+                      currentPosition: .rearRight)
+    container.mainContext.insert(spare2)
+
     return TireListView()
         .modelContainer(container)
 }

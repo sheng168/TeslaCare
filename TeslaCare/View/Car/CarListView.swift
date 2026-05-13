@@ -106,6 +106,7 @@ struct CarListView: View {
                 }
             }
             .navigationTitle("\(cars.count) Cars")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
@@ -160,7 +161,60 @@ struct CarListView: View {
     }
 }
 
-#Preview {
+#Preview("Empty") {
     CarListView()
         .modelContainer(for: Car.self, inMemory: true)
+        .environmentObject(TeslaAuthManager())
+        .environment(LocationManager())
+}
+
+#Preview("With Cars") {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Car.self, Tire.self, TireMeasurement.self, TPMSReading.self, MileageReading.self, configurations: config)
+    let ctx = container.mainContext
+
+    let car1 = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
+    car1.trimBadging = "lr awd"
+    car1.batteryLevel = 82
+    car1.chargingState = "Charging"
+    ctx.insert(car1)
+    let mileage1 = MileageReading(date: Date(), mileage: 24_831)
+    mileage1.car = car1
+    ctx.insert(mileage1)
+    let tpms1 = TPMSReading(date: Date(), frontLeft: 2.93, frontRight: 2.93, rearLeft: 2.76, rearRight: 2.79)
+    tpms1.car = car1
+    ctx.insert(tpms1)
+    for position in TirePosition.allCases {
+        let tire = Tire(brand: "Michelin", modelName: "Pilot Sport 4S", size: "235/45R18", currentPosition: position)
+        tire.car = car1
+        ctx.insert(tire)
+        let m = TireMeasurement(date: Date(), treadDepth: 7.5, position: position, tire: tire)
+        m.car = car1
+        ctx.insert(m)
+    }
+
+    let car2 = Car(name: "Family Car", make: "Tesla", model: "Model Y", year: 2022)
+    car2.trimBadging = "p100d"
+    car2.batteryLevel = 41
+    ctx.insert(car2)
+    let mileage2 = MileageReading(date: .now.addingTimeInterval(-86400), mileage: 51_200)
+    mileage2.car = car2
+    ctx.insert(mileage2)
+    for position in TirePosition.allCases {
+        let tire = Tire(brand: "Goodyear", modelName: "Eagle F1", size: "255/45R19", currentPosition: position)
+        tire.car = car2
+        ctx.insert(tire)
+        let m = TireMeasurement(date: .now.addingTimeInterval(-86400), treadDepth: 3.5, position: position, tire: tire)
+        m.car = car2
+        ctx.insert(m)
+    }
+
+    let car3 = Car(name: "", make: "Tesla", model: "Cybertruck", year: 2024)
+    car3.batteryLevel = 15
+    ctx.insert(car3)
+
+    return CarListView()
+        .modelContainer(container)
+        .environmentObject(TeslaAuthManager())
+        .environment(LocationManager())
 }
