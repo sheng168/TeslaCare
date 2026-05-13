@@ -18,6 +18,7 @@ enum CarSortOrder: String, CaseIterable {
 
 struct CarListView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var authManager: TeslaAuthManager
     @Query private var cars: [Car]
     @State private var showingAddCar = false
     @State private var sortOrder: CarSortOrder = .lastModified
@@ -43,6 +44,10 @@ struct CarListView: View {
                     }
                 }
                 .onDelete(perform: deleteCars)
+            }
+            .refreshable {
+                await authManager.fetchVehicles()
+                authManager.syncCars(into: modelContext)
             }
             .navigationTitle("\(cars.count) Cars")
             .toolbar {

@@ -75,19 +75,19 @@ struct RotateTiresView: View {
                 }
                 
                 Section {
-                    TextField("Add notes (optional)", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                } header: {
-                    Text("Notes")
-                }
-                
-                Section {
                     TireRotationVisualization(pattern: selectedPattern)
                         .frame(height: 300)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 } header: {
                     Text("Visual Guide")
+                }
+
+                Section {
+                    TextField("Add notes (optional)", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
+                } header: {
+                    Text("Notes")
                 }
             }
             .navigationTitle("Rotate Tires")

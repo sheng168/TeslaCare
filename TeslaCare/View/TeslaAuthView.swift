@@ -9,8 +9,11 @@ import SwiftUI
 import SwiftData
 import Combine
 import Foundation
+import OSLog
 import TeslaSwift
 import AuthenticationServices
+
+private let logger = Logger(subsystem: "com.teslacare", category: "TeslaSync")
 
 @MainActor
 class TeslaAuthManager: ObservableObject {
@@ -133,24 +136,32 @@ class TeslaAuthManager: ObservableObject {
     }
     
     func fetchVehicles() async {
-        guard let api = api else { return }
+        guard let api = api else {
+            logger.warning("fetchVehicles: api is nil — not authenticated?")
+            return
+        }
 
+        logger.info("fetchVehicles: starting")
         isLoading = true
         errorMessage = nil
 
         do {
             let fetchedVehicles = try await api.getVehicles()
+            logger.info("fetchVehicles: got \(fetchedVehicles.count) vehicle(s)")
             vehicles = fetchedVehicles
             await fetchExtendedData(for: fetchedVehicles)
         } catch {
+            logger.error("fetchVehicles: \(error)")
             errorMessage = "Failed to fetch vehicles: \(error.localizedDescription)"
         }
 
         isLoading = false
+        logger.info("fetchVehicles: done")
     }
 
     private func fetchExtendedData(for vehicles: [Vehicle]) async {
         guard let api else { return }
+        logger.info("fetchExtendedData: fetching data for \(vehicles.count) vehicle(s)")
         await withTaskGroup(of: (String, VehicleExtended?, NearbyChargingSites?).self) { group in
             for vehicle in vehicles {
                 guard let vin = vehicle.vin else { continue }
@@ -161,6 +172,7 @@ class TeslaAuthManager: ObservableObject {
                 }
             }
             for await (vin, data, nearby) in group {
+                logger.info("fetchExtendedData: vin=\(vin) extended=\(data != nil) nearby=\(nearby != nil)")
                 if let data { vehicleData[vin] = data }
                 if let nearby { vehicleChargingSites[vin] = nearby }
             }
@@ -186,8 +198,10 @@ class TeslaAuthManager: ObservableObject {
     }
 
     func syncCars(into context: ModelContext) {
+        logger.info("syncCars: \(self.vehicles.count) vehicle(s), \(self.vehicleData.count) with extended data")
         for vehicle in vehicles {
             guard let vin = vehicle.vin else { continue }
+            logger.info("syncCars: processing vin=\(vin)")
 
             let predicate = #Predicate<Car> { $0.vin == vin }
             let existing = (try? context.fetch(FetchDescriptor(predicate: predicate)))?.first
