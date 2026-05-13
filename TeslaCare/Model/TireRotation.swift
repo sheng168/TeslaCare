@@ -77,7 +77,7 @@ enum TireRotationPattern: String, Codable, CaseIterable {
 final class TireRotationEvent {
     var date: Date = Date()
     var patternRaw: String = "Front to Back"
-    var mileage: Int?
+    var mileage: Int?       // miles
     var notes: String = ""
     
     var car: Car?

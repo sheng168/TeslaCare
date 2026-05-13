@@ -9,11 +9,11 @@ import SwiftData
 @Model
 final class TPMSReading {
     var date: Date = Date()
-    var frontLeft: Double?
-    var frontRight: Double?
-    var rearLeft: Double?
-    var rearRight: Double?
-    var outsideTemperature: Double?  // °C as reported by Tesla API
+    var frontLeft: Double?           // bar (Tesla API; multiply by 14.504 to get PSI)
+    var frontRight: Double?          // bar
+    var rearLeft: Double?            // bar
+    var rearRight: Double?           // bar
+    var outsideTemperature: Double?  // °C
 
     var car: Car?
 

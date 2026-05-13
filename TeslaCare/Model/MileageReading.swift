@@ -9,8 +9,8 @@ import SwiftData
 @Model
 final class MileageReading {
     var date: Date = Date()
-    var mileage: Int = 0
-    var source: String = "manual"  // "manual" or "tesla_api"
+    var mileage: Int = 0            // miles
+    var source: String = "manual"   // "manual" or "tesla_api"
 
     var car: Car?
 

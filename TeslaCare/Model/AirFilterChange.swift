@@ -39,10 +39,10 @@ enum AirFilterType: String, Codable, CaseIterable {
 final class AirFilterChangeEvent {
     var date: Date = Date()
     var filterTypeRaw: String = "Cabin Air Filter"
-    var mileage: Int?
+    var mileage: Int?       // miles
     var brand: String = ""
     var partNumber: String = ""
-    var cost: Double?
+    var cost: Double?       // USD
     var notes: String = ""
     
     var car: Car?

@@ -12,11 +12,11 @@ import SwiftData
 @Model
 final class TireReplacementEvent {
     var date: Date = Date()
-    var mileage: Int?
+    var mileage: Int?       // miles
     var notes: String = ""
     var brand: String = ""
     var modelName: String = ""
-    var cost: Double?
+    var cost: Double?       // USD
 
     // Which tires were replaced
     var replacedFrontLeft: Bool = false

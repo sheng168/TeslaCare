@@ -13,9 +13,9 @@ final class NearbyCharger {
     var name: String = ""
     var chargerType: String = ""   // "supercharger" or "destination"
     var rawType: String?           // raw type string from Tesla API (e.g. "supercharger_v3")
-    var latitude: Double?
-    var longitude: Double?
-    var distanceMiles: Double = 0
+    var latitude: Double?           // decimal degrees
+    var longitude: Double?          // decimal degrees
+    var distanceMiles: Double = 0   // miles
     var availableStalls: Int?
     var totalStalls: Int?
     var siteClosed: Bool = false

@@ -17,10 +17,10 @@ final class Tire {
     var dotNumber: String = "" // DOT serial number
     var purchaseDate: Date = Date()
     var installDate: Date = Date()
-    var initialTreadDepth: Double = 10.0 // in 32nds of an inch
-    var purchasePrice: Double?
-    var currentPosition: String = "Front Left" // Store as raw value
-    var mileageAtInstall: Int?
+    var initialTreadDepth: Double = 10.0 // 32nds of an inch
+    var purchasePrice: Double?           // USD
+    var currentPosition: String = "Front Left"
+    var mileageAtInstall: Int?           // miles
     var notes: String = ""
     
     var car: Car?

@@ -17,11 +17,11 @@ struct TireSpecs: Decodable {
 }
 
 struct GlobalThresholds: Decodable {
-    let treadWarningDepth: Double
-    let treadReplacementDepth: Double
-    let psiLowWarningOffset: Double
-    let psiHighWarningOffset: Double
-    let psiCriticalLowOffset: Double
+    let treadWarningDepth: Double       // 32nds of an inch
+    let treadReplacementDepth: Double   // 32nds of an inch
+    let psiLowWarningOffset: Double     // PSI below recommended
+    let psiHighWarningOffset: Double    // PSI above recommended
+    let psiCriticalLowOffset: Double    // PSI below recommended (critical)
 }
 
 struct TireModelSpec: Decodable {
@@ -39,20 +39,20 @@ struct TireVariant: Decodable, Identifiable {
     let staggeredNote: String?
     let recommendedColdPsi: TirePsi
     let psiWarning: TirePsiWarning
-    let defaultNewTreadDepth: Double
+    let defaultNewTreadDepth: Double    // 32nds of an inch
     let notes: String?
     let commonOemTires: [String]
 }
 
 struct TirePsi: Decodable {
-    let front: Double
-    let rear: Double
+    let front: Double   // PSI
+    let rear: Double    // PSI
 }
 
 struct TirePsiWarning: Decodable {
-    let low: Double
-    let high: Double
-    let criticalLow: Double
+    let low: Double         // PSI
+    let high: Double        // PSI
+    let criticalLow: Double // PSI
 }
 
 // MARK: - Loader

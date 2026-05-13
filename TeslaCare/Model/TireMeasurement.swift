@@ -12,15 +12,15 @@ import SwiftData
 @Model
 final class TireMeasurement {
     var date: Date = Date()
-    var treadDepth: Double = 0.0 // in 32nds of an inch (average if multiple measurements)
+    var treadDepth: Double = 0.0    // 32nds of an inch (average when multiple points recorded)
     var positionRaw: String = "Front Left"
     var notes: String = ""
-    var mileage: Int?
-    
+    var mileage: Int?               // miles
+
     // Multiple measurement points for uneven wear detection
-    var innerTreadDepth: Double? // Inner edge measurement
-    var centerTreadDepth: Double? // Center measurement
-    var outerTreadDepth: Double? // Outer edge measurement
+    var innerTreadDepth: Double?    // 32nds of an inch — inner edge
+    var centerTreadDepth: Double?   // 32nds of an inch — center
+    var outerTreadDepth: Double?    // 32nds of an inch — outer edge
 
     @Relationship(deleteRule: .cascade, inverse: \TirePhoto.measurement)
     var photos: [TirePhoto]?

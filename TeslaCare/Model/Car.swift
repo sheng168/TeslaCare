@@ -19,11 +19,11 @@ final class Car {
     var vin: String?
     var trimBadging: String?
     var perfConfig: String?
-    var batteryLevel: Int?
+    var batteryLevel: Int?      // percent (0–100)
     var chargingState: String?
-    var latitude: Double?
-    var longitude: Double?
-    var heading: Double?
+    var latitude: Double?       // decimal degrees
+    var longitude: Double?      // decimal degrees
+    var heading: Double?        // degrees (0–360, clockwise from north)
     var locationUpdatedAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \MileageReading.car)
