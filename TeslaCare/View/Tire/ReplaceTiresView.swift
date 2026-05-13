@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "ReplaceTires")
 
 struct ReplaceTiresView: View {
     @Environment(\.modelContext) private var modelContext
@@ -198,6 +201,7 @@ struct ReplaceTiresView: View {
     }
 
     private func replaceTires() {
+        logger.info("Replacing tires: positions=\(selectedPositions.map(\.rawValue)), brand=\(brand), car=\(car.displayName)")
         // Create replacement event
         let replacementEvent = TireReplacementEvent(
             date: replacementDate,
@@ -242,6 +246,7 @@ struct ReplaceTiresView: View {
         }
         
         try? modelContext.save()
+        logger.info("Tire replacement saved for \(selectedPositions.count) position(s)")
         dismiss()
     }
 }

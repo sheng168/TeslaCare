@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "AddTire")
 
 struct AddTireView: View {
     @Environment(\.dismiss) private var dismiss
@@ -140,11 +143,15 @@ struct AddTireView: View {
     }
     
     private func addTire() {
-        guard let car = selectedCar else { return }
-        
+        guard let car = selectedCar else {
+            logger.warning("addTire called with no selected car")
+            return
+        }
+
+        logger.info("Adding tire: \(brand) \(modelName) \(size) at \(currentPosition.rawValue) for car: \(car.displayName)")
         let price = Double(purchasePrice)
         let mileage = Int(mileageAtInstall)
-        
+
         let tire = Tire(
             brand: brand,
             modelName: modelName,
@@ -158,10 +165,10 @@ struct AddTireView: View {
             mileageAtInstall: mileage,
             notes: notes
         )
-        
+
         tire.car = car
         modelContext.insert(tire)
-        
+        logger.info("Tire added successfully: \(tire.displayName)")
         dismiss()
     }
 }

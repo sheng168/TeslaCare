@@ -5,16 +5,22 @@
 
 import Vision
 import UIKit
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "ImageProcessing")
 
 enum TireImageProcessor {
 
     /// Detects the tire/rim in the image and returns a cropped, centered version.
     /// Falls back to attention saliency, then the original if detection fails.
     static func process(_ image: UIImage) async -> UIImage {
-        await Task.detached(priority: .userInitiated) {
+        logger.info("Processing tire image: \(Int(image.size.width))x\(Int(image.size.height))")
+        let result = await Task.detached(priority: .userInitiated) {
             let normalized = normalize(image)
             return rimCrop(normalized) ?? saliencyCrop(normalized) ?? normalized
         }.value
+        logger.info("Image processing complete")
+        return result
     }
 
     // MARK: - Image normalization

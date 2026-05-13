@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "App")
 
 @main
 struct TeslaCareApp: App {
@@ -30,8 +33,11 @@ struct TeslaCareApp: App {
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            logger.info("ModelContainer created successfully")
+            return container
         } catch {
+            logger.error("Failed to create ModelContainer: \(error)")
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
@@ -42,6 +48,7 @@ struct TeslaCareApp: App {
                 .environment(locationManager)
                 .environmentObject(authManager)
                 .onAppear {
+                    logger.info("App appeared, setting up authManager")
                     authManager.setup(context: sharedModelContainer.mainContext)
                 }
         }

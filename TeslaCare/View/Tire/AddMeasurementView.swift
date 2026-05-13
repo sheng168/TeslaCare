@@ -8,6 +8,9 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "AddMeasurement")
 
 struct AddMeasurementView: View {
     @Environment(\.modelContext) private var modelContext
@@ -520,11 +523,13 @@ struct AddMeasurementView: View {
     
     private func addPhoto(_ image: UIImage) {
         let index = originalPhotos.count
+        logger.info("Adding photo at index \(index), size: \(Int(image.size.width))x\(Int(image.size.height))")
         originalPhotos.append(image)
         processedPhotos.append(nil)
         Task {
             let cropped = await TireImageProcessor.process(image)
             processedPhotos[index] = cropped
+            logger.info("Photo processed at index \(index)")
         }
     }
 
@@ -539,14 +544,16 @@ struct AddMeasurementView: View {
     }
     
     private func addMeasurement() {
+        logger.info("Adding measurement: position=\(selectedPosition.rawValue), car=\(car.displayName), multiPoint=\(useMultipleMeasurements)")
         let mileageValue = includeMileage ? Int(mileage) : nil
-        
+
         // Find or create a tire at the selected position
         let tire: Tire
         if let existingTire = car.tires?.first(where: { $0.position == selectedPosition }) {
             tire = existingTire
         } else {
             // Create a placeholder tire if none exists at this position
+            logger.info("No tire at position \(selectedPosition.rawValue), creating placeholder")
             tire = Tire(brand: "", modelName: "", size: "", currentPosition: selectedPosition)
             tire.car = car
             modelContext.insert(tire)
@@ -592,6 +599,7 @@ struct AddMeasurementView: View {
             }
         }
         NotificationManager.scheduleUpdateReminder(for: car)
+        logger.info("Measurement saved with \(originalPhotos.count) photo(s)")
         dismiss()
     }
 }

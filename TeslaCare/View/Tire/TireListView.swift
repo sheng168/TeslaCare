@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "TireList")
 
 struct TireListView: View {
     @Environment(\.modelContext) private var modelContext
@@ -75,6 +78,7 @@ struct TireListView: View {
     private func deleteTires(_ tires: [Tire], offsets: IndexSet) {
         withAnimation {
             for index in offsets {
+                logger.info("Deleting tire: \(tires[index].displayName)")
                 modelContext.delete(tires[index])
             }
         }

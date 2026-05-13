@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "AddCar")
 
 struct AddCarView: View {
     @Environment(\.modelContext) private var modelContext
@@ -66,13 +69,16 @@ struct AddCarView: View {
     }
     
     private func addCar() {
+        logger.info("Adding car: \(year) \(make) \(model)")
         let newCar = Car(name: name, make: make, model: model, year: year)
         modelContext.insert(newCar)
         if let miles = Int(mileageText) {
             let reading = MileageReading(date: Date(), mileage: miles, source: "manual")
             reading.car = newCar
             modelContext.insert(reading)
+            logger.info("Added initial mileage reading: \(miles) mi")
         }
+        logger.info("Car added successfully: \(newCar.displayName)")
         dismiss()
     }
 }

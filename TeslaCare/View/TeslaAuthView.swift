@@ -37,12 +37,17 @@ class TeslaAuthManager: ObservableObject {
 
     /// Called once the SwiftData ModelContext is available (from TeslaCareApp.onAppear).
     func setup(context: ModelContext) {
-        guard modelContext == nil else { return }
+        guard modelContext == nil else {
+            logger.debug("setup: already configured, skipping")
+            return
+        }
+        logger.info("setup: configuring model context")
         modelContext = context
         checkExistingAuth()
     }
 
     private func setupAPI() {
+        logger.info("setupAPI: initializing TeslaSwift fleet API")
         api = TeslaSwift(teslaAPI: .fleetAPI(
             region: .northAmericaAsiaPacific,
             clientID: clientID,
@@ -62,6 +67,7 @@ class TeslaAuthManager: ObservableObject {
     }
 
     private func saveTokens(access: String?, refresh: String?, expiry: Double?) {
+        logger.info("saveTokens: access=\(access != nil) refresh=\(refresh != nil)")
         let cred = credential()
         cred.accessToken = access
         cred.refreshToken = refresh
@@ -69,46 +75,56 @@ class TeslaAuthManager: ObservableObject {
     }
 
     private func checkExistingAuth() {
+        logger.info("checkExistingAuth: checking stored credentials")
         let cred = credential()
         guard let accessToken = cred.accessToken,
               let refreshToken = cred.refreshToken,
               let expiry = cred.tokenExpiry else {
+            logger.info("checkExistingAuth: no stored credentials, not authenticated")
             isAuthenticated = false
             return
         }
 
         let expiryDate = Date(timeIntervalSince1970: expiry)
         if expiryDate > Date() {
+            logger.info("checkExistingAuth: token valid, reusing")
             let token = AuthToken(accessToken: accessToken)
             token.refreshToken = refreshToken
             api?.reuse(token: token)
             isAuthenticated = true
             Task { await fetchVehicles() }
         } else {
+            logger.info("checkExistingAuth: token expired, refreshing")
             Task { _ = try? await api?.refreshToken() }
         }
     }
 
     func getAuthorizationURL() -> URL? {
-        return api?.authenticateWebNativeURL()
+        let url = api?.authenticateWebNativeURL()
+        logger.info("getAuthorizationURL: \(url != nil ? "ok" : "nil — api not initialized")")
+        return url
     }
 
     func authenticate(callbackURL: URL) async {
         guard let api = api else {
+            logger.error("authenticate: api is nil")
             errorMessage = "API not initialized"
             return
         }
 
+        logger.info("authenticate: exchanging callback URL for token")
         isLoading = true
         errorMessage = nil
 
         do {
             let token = try await api.authenticateWebNative(url: callbackURL)
             let expiry = token.expiresIn.map { Date().addingTimeInterval($0).timeIntervalSince1970 }
+            logger.info("authenticate: success, token expires in \(token.expiresIn ?? 0)s")
             saveTokens(access: token.accessToken, refresh: token.refreshToken, expiry: expiry)
             isAuthenticated = true
             await fetchVehicles()
         } catch {
+            logger.error("authenticate: failed — \(error)")
             errorMessage = "Authentication failed: \(error.localizedDescription)"
             isAuthenticated = false
         }
@@ -118,19 +134,22 @@ class TeslaAuthManager: ObservableObject {
 
     func refreshToken() async {
         guard let api = api, credential().refreshToken != nil else {
+            logger.warning("refreshToken: no api or refresh token, logging out")
             logout()
             return
         }
 
+        logger.info("refreshToken: starting")
         do {
             _ = try await api.refreshToken()
             if let token = api.token {
                 let expiry = token.expiresIn.map { Date().addingTimeInterval($0).timeIntervalSince1970 }
+                logger.info("refreshToken: success")
                 saveTokens(access: token.accessToken, refresh: token.refreshToken, expiry: expiry)
                 isAuthenticated = true
             }
         } catch {
-            logger.error("Token refresh failed: \(error)")
+            logger.error("refreshToken: failed — \(error)")
             logout()
         }
     }
@@ -180,6 +199,7 @@ class TeslaAuthManager: ObservableObject {
     }
     
     func logout() {
+        logger.info("logout: clearing credentials and session")
         saveTokens(access: nil, refresh: nil, expiry: nil)
         isAuthenticated = false
         vehicles = []
@@ -495,6 +515,7 @@ struct TeslaAuthView: View {
     }
     
     private func syncCarsFromTesla() {
+        logger.info("syncCarsFromTesla: triggered after vehicle load")
         authManager.syncCars(into: modelContext)
     }
 
@@ -523,7 +544,9 @@ struct TeslaAuthView: View {
     }
 
     private func startAuthentication() {
+        logger.info("startAuthentication: initiating OAuth session")
         guard let authURL = authManager.getAuthorizationURL() else {
+            logger.error("startAuthentication: failed to generate authorization URL")
             authManager.errorMessage = "Failed to generate authorization URL"
             return
         }
@@ -558,14 +581,17 @@ struct TeslaAuthView: View {
             authSession = nil
             
             if let error = error {
+                logger.error("startAuthentication: OAuth session error — \(error)")
                 authManager.errorMessage = "Authentication cancelled: \(error.localizedDescription)"
                 return
             }
-            
+
             guard let callbackURL = callbackURL else {
+                logger.error("startAuthentication: no callback URL received")
                 authManager.errorMessage = "Failed to receive callback URL"
                 return
             }
+            logger.info("startAuthentication: received callback URL")
             
             // Pass the full callback URL — authenticateWebNative parses the code from it
             Task {

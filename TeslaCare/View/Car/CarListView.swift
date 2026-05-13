@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "CarList")
 
 enum CarSortOrder: String, CaseIterable {
     case lastModified = "Last Modified"
@@ -92,6 +95,7 @@ struct CarListView: View {
     private func deleteCars(offsets: IndexSet) {
         withAnimation {
             for index in offsets {
+                logger.info("Deleting car: \(sortedCars[index].displayName)")
                 modelContext.delete(sortedCars[index])
             }
         }

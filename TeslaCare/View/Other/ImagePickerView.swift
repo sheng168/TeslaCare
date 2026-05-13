@@ -4,6 +4,9 @@
 //
 
 import SwiftUI
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "ImageProcessing")
 
 struct ImagePickerView: UIViewControllerRepresentable {
     let sourceType: UIImagePickerController.SourceType
@@ -41,15 +44,19 @@ struct ImagePickerView: UIViewControllerRepresentable {
         func imagePickerController(_ picker: UIImagePickerController,
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let image = info[.originalImage] as? UIImage {
+                logger.info("Image picked, source: \(picker.sourceType.rawValue), size: \(Int(image.size.width))x\(Int(image.size.height))")
                 parent.selectedImage = image
                 if picker.sourceType == .camera {
                     UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
                 }
+            } else {
+                logger.warning("imagePickerController finished but no original image found")
             }
             parent.dismiss()
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            logger.info("Image picker cancelled")
             parent.dismiss()
         }
     }

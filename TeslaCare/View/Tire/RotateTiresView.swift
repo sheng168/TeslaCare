@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "RotateTires")
 
 struct RotateTiresView: View {
     @Environment(\.modelContext) private var modelContext
@@ -117,6 +120,7 @@ struct RotateTiresView: View {
     }
     
     private func rotateTires() {
+        logger.info("Rotating tires: pattern=\(selectedPattern.rawValue), car=\(car.displayName)")
         // Create rotation event
         let rotationEvent = TireRotationEvent(
             date: rotationDate,
@@ -161,6 +165,7 @@ struct RotateTiresView: View {
         }
         
         try? modelContext.save()
+        logger.info("Tire rotation saved: pattern=\(selectedPattern.rawValue)")
         dismiss()
     }
 }

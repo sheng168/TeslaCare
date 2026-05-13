@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "AirFilter")
 
 struct LogAirFilterChangeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -132,6 +135,7 @@ struct LogAirFilterChangeView: View {
     }
     
     private func saveAirFilterChange() {
+        logger.info("Saving air filter change: type=\(filterType.rawValue), car=\(car.displayName)")
         let filterChange = AirFilterChangeEvent(
             date: changeDate,
             filterType: filterType,
@@ -143,8 +147,9 @@ struct LogAirFilterChangeView: View {
         )
         filterChange.car = car
         modelContext.insert(filterChange)
-        
+
         try? modelContext.save()
+        logger.info("Air filter change saved successfully")
         dismiss()
     }
 }

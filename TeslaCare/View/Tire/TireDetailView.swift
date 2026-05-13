@@ -8,6 +8,9 @@
 import SwiftUI
 import SwiftData
 import Charts
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "TireDetail")
 
 struct TireDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -508,6 +511,7 @@ struct TireDetailView: View {
     }
     
     private func deleteTire() {
+        logger.info("Deleting tire: \(tire.displayName)")
         modelContext.delete(tire)
     }
 }
@@ -662,6 +666,7 @@ struct EditTireView: View {
     }
     
     private func saveTire() {
+        logger.info("Saving tire edits: \(brand) \(modelName) \(size)")
         tire.brand = brand
         tire.modelName = modelName
         tire.size = size

@@ -6,6 +6,9 @@
 import Foundation
 import SwiftData
 import UserNotifications
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "Notifications")
 
 enum NotificationManager {
     static let hour = 60 * 60.0
@@ -37,16 +40,25 @@ enum NotificationManager {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         center.add(request)
+        logger.info("Scheduled update reminder for car: \(car.displayName), delay: \(delay)s")
     }
 
     static func cancelUpdateReminder(for car: Car) {
+        logger.info("Cancelling update reminder for car: \(car.displayName)")
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [notificationID(for: car)])
     }
 
     static func requestPermission() {
+        logger.info("Requesting notification permission")
         UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
+            .requestAuthorization(options: [.alert, .sound]) { granted, error in
+                if let error {
+                    logger.error("Notification permission request failed: \(error)")
+                } else {
+                    logger.info("Notification permission granted: \(granted)")
+                }
+            }
     }
 
     // Stable per-car identifier: prefer VIN (globally unique), fall back to model ID hash.

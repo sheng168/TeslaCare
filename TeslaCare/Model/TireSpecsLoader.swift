@@ -4,6 +4,9 @@
 //
 
 import Foundation
+import OSLog
+
+private let logger = Logger(subsystem: "com.teslacare", category: "Model")
 
 // MARK: - Decodable models for TireSpecs.json
 
@@ -57,16 +60,26 @@ struct TirePsiWarning: Decodable {
 enum TireSpecsLoader {
     static let shared: TireSpecs? = {
         guard let url = Bundle.main.url(forResource: "TireSpecs", withExtension: "json"),
-              let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(TireSpecs.self, from: data)
+              let data = try? Data(contentsOf: url) else {
+            logger.error("TireSpecs.json not found in bundle")
+            return nil
+        }
+        guard let specs = try? JSONDecoder().decode(TireSpecs.self, from: data) else {
+            logger.error("Failed to decode TireSpecs.json")
+            return nil
+        }
+        logger.info("TireSpecs loaded: \(specs.models.count) model(s), version=\(specs.version)")
+        return specs
     }()
 
     static func variants(for car: Car) -> [TireVariant] {
-        shared?.models
+        let result = shared?.models
             .first {
                 $0.make.lowercased() == car.make.lowercased() &&
                 $0.model.lowercased() == car.model.lowercased()
             }?
             .variants ?? []
+        logger.info("variants(for:) car=\(car.displayName), found \(result.count) variant(s)")
+        return result
     }
 }
