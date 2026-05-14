@@ -82,9 +82,7 @@ final class CloudKitPublicService {
         guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
         return await withCheckedContinuation { continuation in
             request.getMapItems { mapItems, _ in
-                let placemark = mapItems?.first?.placemark
-                let parts = [placemark?.locality, placemark?.administrativeArea].compactMap { $0 }
-                continuation.resume(returning: parts.isEmpty ? nil : parts.joined(separator: ", "))
+                continuation.resume(returning: mapItems?.first?.addressRepresentations?.cityWithContext)
             }
         }
     }

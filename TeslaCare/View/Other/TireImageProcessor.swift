@@ -13,11 +13,12 @@ enum TireImageProcessor {
 
     /// Detects the tire/rim in the image and returns a cropped, centered version.
     /// Falls back to attention saliency, then the original if detection fails.
+    @MainActor
     static func process(_ image: UIImage) async -> UIImage {
         logger.info("Processing tire image: \(Int(image.size.width))x\(Int(image.size.height))")
+        let normalized = normalize(image)
         let result = await Task.detached(priority: .userInitiated) {
-            let normalized = normalize(image)
-            return rimCrop(normalized) ?? saliencyCrop(normalized) ?? normalized
+            rimCrop(normalized) ?? saliencyCrop(normalized) ?? normalized
         }.value
         logger.info("Image processing complete")
         return result
@@ -35,7 +36,7 @@ enum TireImageProcessor {
 
     // MARK: - Rim detection via contour bounding circles
 
-    private static func rimCrop(_ image: UIImage) -> UIImage? {
+    private nonisolated static func rimCrop(_ image: UIImage) -> UIImage? {
         guard let cgImage = image.cgImage else { return nil }
 
         let request = VNDetectContoursRequest()
@@ -73,7 +74,7 @@ enum TireImageProcessor {
         return crop(to: circle, in: image)
     }
 
-    private static func crop(to circle: VNCircle, in image: UIImage) -> UIImage? {
+    private nonisolated static func crop(to circle: VNCircle, in image: UIImage) -> UIImage? {
         let size = image.size
         let scale = image.scale
 
@@ -94,7 +95,7 @@ enum TireImageProcessor {
 
     // MARK: - Fallback: attention saliency crop
 
-    private static func saliencyCrop(_ image: UIImage) -> UIImage? {
+    private nonisolated static func saliencyCrop(_ image: UIImage) -> UIImage? {
         guard let cgImage = image.cgImage else { return nil }
 
         let request = VNGenerateAttentionBasedSaliencyImageRequest()

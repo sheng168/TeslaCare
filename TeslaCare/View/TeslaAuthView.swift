@@ -553,19 +553,16 @@ struct TeslaAuthView: View {
         
         let provider = ASWebAuthenticationPresentationContextProvider { _ in
             #if os(iOS)
-            // Find the active window scene's key window
-            let windowScene = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .first { $0.activationState == .foregroundActive }
-            // windowScene should always be non-nil for a foreground app;
-            // the UIWindow() fallback is an emergency safety net
-            return windowScene?.windows.first { $0.isKeyWindow }
-                ?? windowScene?.windows.first
-                ?? UIApplication.shared.connectedScenes
-                    .compactMap { $0 as? UIWindowScene }
-                    .flatMap { $0.windows }
-                    .first { $0.isKeyWindow }
-                ?? UIWindow()
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            let activeScene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+            let allWindows = scenes.flatMap { $0.windows }
+            if let window = allWindows.first(where: { $0.isKeyWindow }) ?? allWindows.first {
+                return window
+            }
+            guard let scene = activeScene else {
+                fatalError("No UIWindowScene available — this cannot happen in a foreground app")
+            }
+            return UIWindow(windowScene: scene)
             #else
             return ASPresentationAnchor()
             #endif

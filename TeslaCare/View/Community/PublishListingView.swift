@@ -39,7 +39,7 @@ struct PublishListingView: View {
                 }
 
                 Section {
-                    TextField("https://craigslist.org/...", text: $listingURLText)
+                    TextField("", text: $listingURLText)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
