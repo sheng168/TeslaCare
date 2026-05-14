@@ -15,6 +15,7 @@ private let logger = Logger(subsystem: "com.teslacare", category: "App")
 struct TeslaCareApp: App {
     @StateObject private var authManager = TeslaAuthManager()
     @State private var locationManager = LocationManager()
+    @State private var cloudKitService = CloudKitPublicService()
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -46,6 +47,7 @@ struct TeslaCareApp: App {
         WindowGroup {
             MainTabView()
                 .environment(locationManager)
+                .environment(cloudKitService)
                 .environmentObject(authManager)
                 .onAppear {
                     logger.info("App appeared, setting up authManager")

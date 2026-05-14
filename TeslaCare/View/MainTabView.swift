@@ -29,13 +29,13 @@ struct MainTabView: View {
                     Label("Tires", systemImage: "circle.circle")
                 }
                 .tag(1)
-            
-//            MaintenanceView()
-//                .tabItem {
-//                    Label("Maintenance", systemImage: "wrench.and.screwdriver.fill")
-//                }
-//                .tag(2)
-            
+
+            PublicCarsView()
+                .tabItem {
+                    Label("Community", systemImage: "globe")
+                }
+                .tag(2)
+
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
@@ -73,5 +73,6 @@ struct MainTabView: View {
     MainTabView()
         .modelContainer(for: [Car.self, Tire.self, TireMeasurement.self], inMemory: true)
         .environment(LocationManager())
+        .environment(CloudKitPublicService())
         .environmentObject(TeslaAuthManager())
 }

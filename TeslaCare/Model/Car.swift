@@ -18,6 +18,7 @@ final class Car {
     var dateAdded: Date = Date()
     var vin: String?
     var trimBadging: String?
+    var cloudKitRecordName: String?
     var perfConfig: String?
     var batteryLevel: Int?      // percent (0–100)
     var chargingState: String?

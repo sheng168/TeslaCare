@@ -12,6 +12,7 @@ import CoreLocation
 struct CarDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(LocationManager.self) private var locationManager
+    @Environment(CloudKitPublicService.self) private var cloudKitService
     let car: Car
 
     @State private var showingAddMeasurement = false
@@ -19,6 +20,10 @@ struct CarDetailView: View {
     @State private var showingReplaceTires = false
     @State private var showingLogAirFilter = false
     @State private var selectedPosition: TirePosition?
+    @State private var showingPublishSheet = false
+    @State private var showingUnpublishConfirm = false
+    @State private var isUnpublishing = false
+    @State private var unpublishAlertMessage: String?
 
     @AppStorage("detail.headerExpanded") private var headerExpanded = true
     @AppStorage("detail.chargersExpanded") private var chargersExpanded = true
@@ -68,6 +73,46 @@ struct CarDetailView: View {
                     Label("Log Air Filter", systemImage: "air.purifier.fill")
                 }
             }
+
+            ToolbarItem(placement: .primaryAction) {
+                if car.cloudKitRecordName != nil {
+                    Button(action: { showingUnpublishConfirm = true }) {
+                        Label("Unpublish", systemImage: "xmark.circle")
+                    }
+                    .disabled(isUnpublishing)
+                } else {
+                    Button(action: { showingPublishSheet = true }) {
+                        Label("Publish to Community", systemImage: "globe")
+                    }
+                }
+            }
+        }
+        .alert("Unpublish from Community?", isPresented: $showingUnpublishConfirm) {
+            Button("Unpublish", role: .destructive) {
+                isUnpublishing = true
+                Task {
+                    do {
+                        try await cloudKitService.unpublishCar(car)
+                    } catch {
+                        unpublishAlertMessage = error.localizedDescription
+                    }
+                    isUnpublishing = false
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("\(car.displayName) will no longer be visible to other users.")
+        }
+        .alert("Unpublish Failed", isPresented: Binding(
+            get: { unpublishAlertMessage != nil },
+            set: { if !$0 { unpublishAlertMessage = nil } }
+        )) {
+            Button("OK") { unpublishAlertMessage = nil }
+        } message: {
+            Text(unpublishAlertMessage ?? "")
+        }
+        .sheet(isPresented: $showingPublishSheet) {
+            PublishListingView(car: car)
         }
         .sheet(isPresented: $showingAddMeasurement) {
             AddMeasurementView(car: car, preselectedPosition: selectedPosition)
@@ -491,6 +536,7 @@ struct CarDetailView: View {
         return CarDetailView(car: car)
             .modelContainer(container)
             .environment(LocationManager())
+            .environment(CloudKitPublicService())
             .environmentObject(TeslaAuthManager())
     }
 }
