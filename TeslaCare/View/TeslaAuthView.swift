@@ -53,14 +53,21 @@ class TeslaAuthManager: ObservableObject {
             clientID: clientID,
             clientSecret: clientSecret,
             redirectURI: redirectURI,
-            scopes: [.vehicleDeviceData, .vehicleCmds]
+            scopes: [.openId, .offlineAccess, .vehicleDeviceData, .vehicleCmds]
         ))
         api?.debuggingEnabled = true
     }
 
+    // Returns the single canonical credential for write operations, deleting any duplicates.
     private func credential() -> TeslaCredential {
-        let existing = try? modelContext?.fetch(FetchDescriptor<TeslaCredential>())
-        if let cred = existing?.first { return cred }
+        let all = (try? modelContext?.fetch(FetchDescriptor<TeslaCredential>())) ?? []
+        if all.count > 1 {
+            // Keep the one with the most data (has an access token), delete the rest
+            let sorted = all.sorted { $0.accessToken != nil && $1.accessToken == nil }
+            sorted.dropFirst().forEach { modelContext?.delete($0) }
+            return sorted[0]
+        }
+        if let cred = all.first { return cred }
         let cred = TeslaCredential()
         modelContext?.insert(cred)
         return cred
@@ -72,30 +79,43 @@ class TeslaAuthManager: ObservableObject {
         cred.accessToken = access
         cred.refreshToken = refresh
         cred.tokenExpiry = expiry
+        try? modelContext?.save()
     }
 
     private func checkExistingAuth() {
         logger.info("checkExistingAuth: checking stored credentials")
-        let cred = credential()
-        guard let accessToken = cred.accessToken,
-              let refreshToken = cred.refreshToken,
-              let expiry = cred.tokenExpiry else {
-            logger.info("checkExistingAuth: no stored credentials, not authenticated")
+        // Read-only fetch — do not auto-create a credential here, which would accumulate
+        // empty records each launch if the user hasn't authenticated yet.
+        let cred = (try? modelContext?.fetch(FetchDescriptor<TeslaCredential>()))?.first
+        guard let accessToken = cred?.accessToken, !accessToken.isEmpty else {
+            logger.info("checkExistingAuth: no access token stored")
+            isAuthenticated = false
+            return
+        }
+        guard let refreshToken = cred?.refreshToken, !refreshToken.isEmpty else {
+            logger.info("checkExistingAuth: no refresh token stored")
             isAuthenticated = false
             return
         }
 
-        let expiryDate = Date(timeIntervalSince1970: expiry)
-        if expiryDate > Date() {
-            logger.info("checkExistingAuth: token valid, reusing")
-            let token = AuthToken(accessToken: accessToken)
-            token.refreshToken = refreshToken
+        let token = AuthToken(accessToken: accessToken)
+        token.refreshToken = refreshToken
+
+        let expiryDate = cred?.tokenExpiry.map { Date(timeIntervalSince1970: $0) }
+        if let expiryDate, expiryDate > Date() {
+            logger.info("checkExistingAuth: token valid until \(expiryDate), reusing")
+            // Set expiresIn so AuthToken.isValid returns true — otherwise TeslaSwift silently
+            // auto-refreshes on every call, consuming the refresh token without saving the new one.
+            token.createdAt = Date()
+            token.expiresIn = expiryDate.timeIntervalSince(Date())
             api?.reuse(token: token)
             isAuthenticated = true
             Task { await fetchVehicles() }
         } else {
-            logger.info("checkExistingAuth: token expired, refreshing")
-            Task { _ = try? await api?.refreshToken() }
+            logger.info("checkExistingAuth: token expired or no expiry stored, refreshing")
+            // Load token so refreshToken is available to api.refreshToken()
+            api?.reuse(token: token)
+            Task { await self.refreshToken() }
         }
     }
 
@@ -147,6 +167,7 @@ class TeslaAuthManager: ObservableObject {
                 logger.info("refreshToken: success")
                 saveTokens(access: token.accessToken, refresh: token.refreshToken, expiry: expiry)
                 isAuthenticated = true
+                await fetchVehicles()
             }
         } catch {
             logger.error("refreshToken: failed — \(error)")
