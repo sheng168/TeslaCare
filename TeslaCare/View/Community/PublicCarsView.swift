@@ -70,6 +70,24 @@ struct PublicCarRowView: View {
                         .background(type == .forSale ? Color.blue : Color.purple)
                         .clipShape(Capsule())
                 }
+                if car.hasFSD == true {
+                    Text("FSD")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.purple.opacity(0.85))
+                        .clipShape(Capsule())
+                }
+                if car.freeSupercharging == true {
+                    Text("Free SC")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.orange.opacity(0.85))
+                        .clipShape(Capsule())
+                }
                 if let trim = car.trimSummary {
                     Text(trim)
                         .font(.caption)

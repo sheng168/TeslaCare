@@ -19,6 +19,10 @@ final class Car {
     var vin: String?
     var trimBadging: String?
     var cloudKitRecordName: String?
+    var listingURL: String?
+    var purchasePrice: Double?
+    var hasFSD: Bool?
+    var freeSupercharging: Bool?
     var perfConfig: String?
     var batteryLevel: Int?      // percent (0–100)
     var chargingState: String?

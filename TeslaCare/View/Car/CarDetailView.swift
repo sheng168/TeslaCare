@@ -19,6 +19,7 @@ struct CarDetailView: View {
     @State private var showingRotateTires = false
     @State private var showingReplaceTires = false
     @State private var showingLogAirFilter = false
+    @State private var showingEditCar = false
     @State private var selectedPosition: TirePosition?
     @State private var showingPublishSheet = false
     @State private var showingUnpublishConfirm = false
@@ -69,6 +70,12 @@ struct CarDetailView: View {
             }
 
             ToolbarItem(placement: .secondaryAction) {
+                Button(action: { showingEditCar = true }) {
+                    Label("Edit Car", systemImage: "pencil")
+                }
+            }
+
+            ToolbarItem(placement: .secondaryAction) {
                 Button(action: { showingLogAirFilter = true }) {
                     Label("Log Air Filter", systemImage: "air.purifier.fill")
                 }
@@ -113,6 +120,9 @@ struct CarDetailView: View {
         }
         .sheet(isPresented: $showingPublishSheet) {
             PublishListingView(car: car)
+        }
+        .sheet(isPresented: $showingEditCar) {
+            EditCarView(car: car)
         }
         .sheet(isPresented: $showingAddMeasurement) {
             AddMeasurementView(car: car, preselectedPosition: selectedPosition)
@@ -251,15 +261,51 @@ struct CarDetailView: View {
         VStack(spacing: 0) {
             DisclosureGroup(isExpanded: $headerExpanded) {
                 VStack(spacing: 8) {
-                    if let summary = car.drivetrainSummary {
-                        Text(summary)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.blue.opacity(0.8))
-                            .clipShape(Capsule())
+                    HStack(spacing: 6) {
+                        if let summary = car.drivetrainSummary {
+                            Text(summary)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.blue.opacity(0.8))
+                                .clipShape(Capsule())
+                        }
+                        if car.hasFSD == true {
+                            Text("FSD")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.purple.opacity(0.85))
+                                .clipShape(Capsule())
+                        }
+                        if car.freeSupercharging == true {
+                            Text("Free SC")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.orange.opacity(0.85))
+                                .clipShape(Capsule())
+                        }
+                    }
+
+                    HStack(spacing: 12) {
+                        if let price = car.purchasePrice {
+                            Text(price, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let urlString = car.listingURL, let url = URL(string: urlString) {
+                            Link(destination: url) {
+                                Label("Listing", systemImage: "link")
+                                    .font(.subheadline)
+                            }
+                        }
                     }
 
                     HStack(spacing: 12) {
@@ -492,6 +538,65 @@ struct CarDetailView: View {
         case 50...100: return .green
         case 25..<50: return .orange
         default: return .red
+        }
+    }
+}
+
+// MARK: - Edit Car Sheet
+
+private struct EditCarView: View {
+    @Environment(\.dismiss) private var dismiss
+    let car: Car
+
+    @State private var priceText: String
+    @State private var urlText: String
+    @State private var hasFSD: Bool
+    @State private var freeSupercharging: Bool
+
+    init(car: Car) {
+        self.car = car
+        _priceText = State(initialValue: car.purchasePrice.map { String(format: "%.0f", $0) } ?? "")
+        _urlText = State(initialValue: car.listingURL ?? "")
+        _hasFSD = State(initialValue: car.hasFSD ?? false)
+        _freeSupercharging = State(initialValue: car.freeSupercharging ?? false)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Purchase") {
+                    HStack {
+                        Text("$")
+                            .foregroundStyle(.secondary)
+                        TextField("Price", text: $priceText)
+                            .keyboardType(.numberPad)
+                    }
+                    TextField("Listing URL", text: $urlText)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                Section("Features") {
+                    Toggle("Full Self-Driving (FSD)", isOn: $hasFSD)
+                    Toggle("Free Supercharging", isOn: $freeSupercharging)
+                }
+            }
+            .navigationTitle("Edit Car")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        car.purchasePrice = Double(priceText)
+                        car.listingURL = urlText.isEmpty ? nil : urlText
+                        car.hasFSD = hasFSD
+                        car.freeSupercharging = freeSupercharging
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

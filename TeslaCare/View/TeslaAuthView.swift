@@ -247,6 +247,13 @@ class TeslaAuthManager: ObservableObject {
                 if let trim = config.trimBadging { car.trimBadging = trim }
                 if let perf = config.perfConfig { car.perfConfig = perf }
             }
+            if let codes = vehicle.optionCodes {
+                let codeSet = Set(codes.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+                // APF2 = FSD Hardware 2.0, AP3 = Enhanced Autopilot with FSD capability
+                car.hasFSD = codeSet.contains("APF2") || codeSet.contains("AP3")
+                // DA02 = Free Unlimited Supercharging
+                car.freeSupercharging = codeSet.contains("DA02")
+            }
 
             if let odometer = vehicleState?.odometer {
                 let reading = MileageReading(date: Date(), mileage: Int(odometer), source: "tesla_api")

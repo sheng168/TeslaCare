@@ -81,6 +81,24 @@ struct PublicCarDetailView: View {
                             .background(Color.blue.opacity(0.85))
                             .clipShape(Capsule())
                     }
+                    if car.hasFSD == true {
+                        Text("FSD")
+                            .font(.caption.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.purple.opacity(0.85))
+                            .clipShape(Capsule())
+                    }
+                    if car.freeSupercharging == true {
+                        Text("Free SC")
+                            .font(.caption.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.orange.opacity(0.85))
+                            .clipShape(Capsule())
+                    }
                 }
                 .padding(.top, 2)
             }

@@ -24,7 +24,7 @@ final class CloudKitPublicService {
     /// Publishes car info to the public CloudKit database. Uses VIN as a stable record ID when available
     /// so re-publishing updates the existing record instead of creating a duplicate.
     @MainActor
-    func publishCar(_ car: Car, listingType: ListingType, listingURL: URL?) async throws {
+    func publishCar(_ car: Car, listingType: ListingType, listingURL: URL?, hasFSD: Bool, freeSupercharging: Bool) async throws {
         let recordName: String
         if let vin = car.vin, !vin.isEmpty {
             recordName = "car-\(vin)"
@@ -36,7 +36,7 @@ final class CloudKitPublicService {
 
         let recordID = CKRecord.ID(recordName: recordName)
         let record = CKRecord(recordType: "PublicCar", recordID: recordID)
-        applyFields(of: car, listingType: listingType, listingURL: listingURL, to: record)
+        applyFields(of: car, listingType: listingType, listingURL: listingURL, hasFSD: hasFSD, freeSupercharging: freeSupercharging, to: record)
         if let city = await approximateCity(for: car) { record["locationCity"] = city as CKRecordValue }
 
         do {
@@ -44,7 +44,7 @@ final class CloudKitPublicService {
         } catch let ckError as CKError where ckError.code == .serverRecordChanged {
             // Record already exists — fetch server copy, update fields, re-save
             guard let serverRecord = ckError.serverRecord else { throw ckError }
-            applyFields(of: car, listingType: listingType, listingURL: listingURL, to: serverRecord)
+            applyFields(of: car, listingType: listingType, listingURL: listingURL, hasFSD: hasFSD, freeSupercharging: freeSupercharging, to: serverRecord)
             if let city = record["locationCity"] as? String { serverRecord["locationCity"] = city as CKRecordValue }
             _ = try await publicDB.save(serverRecord)
         }
@@ -53,7 +53,7 @@ final class CloudKitPublicService {
         logger.info("Car published: \(recordName)")
     }
 
-    private func applyFields(of car: Car, listingType: ListingType, listingURL: URL?, to record: CKRecord) {
+    private func applyFields(of car: Car, listingType: ListingType, listingURL: URL?, hasFSD: Bool, freeSupercharging: Bool, to record: CKRecord) {
         record["name"] = car.displayName as CKRecordValue
         record["make"] = car.make as CKRecordValue
         record["model"] = car.model as CKRecordValue
@@ -65,6 +65,8 @@ final class CloudKitPublicService {
         if let health = car.tireHealthPercentage { record["tireHealthPercentage"] = health as CKRecordValue }
         if let depth = car.averageTreadDepth { record["averageTreadDepth"] = depth as CKRecordValue }
         if let url = listingURL { record["listingURL"] = url.absoluteString as CKRecordValue }
+        record["hasFSD"] = NSNumber(value: hasFSD)
+        record["freeSupercharging"] = NSNumber(value: freeSupercharging)
     }
 
     @MainActor

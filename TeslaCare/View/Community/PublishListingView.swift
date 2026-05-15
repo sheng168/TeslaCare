@@ -15,8 +15,16 @@ struct PublishListingView: View {
 
     @State private var listingType: ListingType = .forSale
     @State private var listingURLText = ""
+    @State private var hasFSD: Bool
+    @State private var freeSupercharging: Bool
     @State private var isPublishing = false
     @State private var errorMessage: String?
+
+    init(car: Car) {
+        self.car = car
+        _hasFSD = State(initialValue: car.hasFSD ?? false)
+        _freeSupercharging = State(initialValue: car.freeSupercharging ?? false)
+    }
 
     private var listingURL: URL? {
         let trimmed = listingURLText.trimmingCharacters(in: .whitespaces)
@@ -47,6 +55,11 @@ struct PublishListingView: View {
                     Text("External Link (optional)")
                 } footer: {
                     Text("Link to your listing on Craigslist, Facebook Marketplace, AutoTrader, etc.")
+                }
+
+                Section("Features") {
+                    Toggle("Full Self-Driving (FSD)", isOn: $hasFSD)
+                    Toggle("Free Supercharging", isOn: $freeSupercharging)
                 }
 
                 Section {
@@ -93,7 +106,8 @@ struct PublishListingView: View {
         isPublishing = true
         Task {
             do {
-                try await cloudKitService.publishCar(car, listingType: listingType, listingURL: listingURL)
+                try await cloudKitService.publishCar(car, listingType: listingType, listingURL: listingURL,
+                                                     hasFSD: hasFSD, freeSupercharging: freeSupercharging)
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription

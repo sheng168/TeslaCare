@@ -27,6 +27,8 @@ struct PublicCarRecord: Identifiable {
     let locationCity: String?
     let listingType: ListingType?
     let listingURL: URL?
+    let hasFSD: Bool?
+    let freeSupercharging: Bool?
     let publishedAt: Date
 
     var displayName: String {
@@ -37,6 +39,7 @@ struct PublicCarRecord: Identifiable {
          trimSummary: String?, vin: String?, mileage: Int?,
          tireHealthPercentage: Double?, averageTreadDepth: Double?,
          locationCity: String?, listingType: ListingType?, listingURL: URL?,
+         hasFSD: Bool? = nil, freeSupercharging: Bool? = nil,
          publishedAt: Date) {
         self.id = id
         self.name = name
@@ -51,6 +54,8 @@ struct PublicCarRecord: Identifiable {
         self.locationCity = locationCity
         self.listingType = listingType
         self.listingURL = listingURL
+        self.hasFSD = hasFSD
+        self.freeSupercharging = freeSupercharging
         self.publishedAt = publishedAt
     }
 
@@ -68,6 +73,8 @@ struct PublicCarRecord: Identifiable {
         locationCity = record["locationCity"] as? String
         listingType = (record["listingType"] as? String).flatMap { ListingType(rawValue: $0) }
         listingURL = (record["listingURL"] as? String).flatMap { URL(string: $0) }
+        hasFSD = (record["hasFSD"] as? NSNumber)?.boolValue
+        freeSupercharging = (record["freeSupercharging"] as? NSNumber)?.boolValue
         publishedAt = record.creationDate ?? Date()
     }
 }
