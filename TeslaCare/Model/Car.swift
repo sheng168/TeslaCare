@@ -23,6 +23,8 @@ final class Car {
     var purchasePrice: Double?
     var hasFSD: Bool?
     var freeSupercharging: Bool?
+    var ownerName: String?
+    var ownerEmail: String?
     var perfConfig: String?
     var batteryLevel: Int?      // percent (0–100)
     var chargingState: String?

@@ -294,6 +294,12 @@ struct CarDetailView: View {
                         }
                     }
 
+                    if let owner = car.ownerName {
+                        Label(owner, systemImage: "person.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
                     HStack(spacing: 12) {
                         if let price = car.purchasePrice {
                             Text(price, format: .currency(code: "USD").precision(.fractionLength(0)))

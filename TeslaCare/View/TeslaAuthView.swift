@@ -23,6 +23,7 @@ class TeslaAuthManager: ObservableObject {
     @Published var vehicles: [Vehicle] = []
     @Published var vehicleData: [String: VehicleExtended] = [:]
     @Published var vehicleChargingSites: [String: NearbyChargingSites] = [:]
+    @Published var ownerInfo: Me?
     
     private var api: TeslaSwift?
     private let clientID = "b7b3546b95f7-453c-ac19-5efbd8d3bd35"
@@ -53,7 +54,7 @@ class TeslaAuthManager: ObservableObject {
             clientID: clientID,
             clientSecret: clientSecret,
             redirectURI: redirectURI,
-            scopes: [.vehicleDeviceData, .vehicleCmds]
+            scopes: [.openId, .userData, .vehicleDeviceData, .vehicleCmds]
         ))
         api?.debuggingEnabled = true
     }
@@ -165,10 +166,13 @@ class TeslaAuthManager: ObservableObject {
         errorMessage = nil
 
         do {
-            let fetchedVehicles = try await api.getVehicles()
-            logger.info("fetchVehicles: got \(fetchedVehicles.count) vehicle(s)")
-            vehicles = fetchedVehicles
-            await fetchExtendedData(for: fetchedVehicles)
+            async let meResult = try? api.me()
+            async let fetchedVehicles = try api.getVehicles()
+            let (me, vehicles_) = await (meResult, try fetchedVehicles)
+            ownerInfo = me
+            logger.info("fetchVehicles: got \(vehicles_.count) vehicle(s), owner=\(me?.fullName ?? "unknown")")
+            vehicles = vehicles_
+            await fetchExtendedData(for: vehicles_)
         } catch {
             logger.error("fetchVehicles: \(error)")
             errorMessage = "Failed to fetch vehicles: \(error.localizedDescription)"
@@ -243,6 +247,10 @@ class TeslaAuthManager: ObservableObject {
             car.make = "Tesla"
             if let model = vinModel(vin) { car.model = model }
             if let year = vinYear(vin) { car.year = year }
+            if let owner = ownerInfo {
+                car.ownerName = owner.fullName.isEmpty ? nil : owner.fullName
+                car.ownerEmail = owner.email.isEmpty ? nil : owner.email
+            }
             if let config = vehicleData[vin]?.vehicleConfig {
                 if let trim = config.trimBadging { car.trimBadging = trim }
                 if let perf = config.perfConfig { car.perfConfig = perf }
