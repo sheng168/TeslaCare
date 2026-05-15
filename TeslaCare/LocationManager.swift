@@ -9,7 +9,7 @@ import Foundation
 import CoreLocation
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "Location")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "Location")
 
 @Observable
 final class LocationManager: NSObject, CLLocationManagerDelegate {

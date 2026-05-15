@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "CarList")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "CarList")
 
 enum CarSortOrder: String, CaseIterable {
     case lastModified = "Last Modified"

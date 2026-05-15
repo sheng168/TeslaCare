@@ -10,7 +10,7 @@ import SwiftData
 import Charts
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "TireDetail")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "TireDetail")
 
 struct TireDetailView: View {
     @Environment(\.modelContext) private var modelContext

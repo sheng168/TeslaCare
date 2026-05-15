@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "AddTire")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "AddTire")
 
 struct AddTireView: View {
     @Environment(\.dismiss) private var dismiss

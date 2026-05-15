@@ -8,7 +8,7 @@ import SwiftData
 import UserNotifications
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "Notifications")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "Notifications")
 
 enum NotificationManager {
     static let hour = 60 * 60.0

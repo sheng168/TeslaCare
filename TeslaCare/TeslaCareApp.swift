@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "App")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "App")
 
 @main
 struct TeslaCareApp: App {

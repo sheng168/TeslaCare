@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "TireList")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "TireList")
 
 struct TireListView: View {
     @Environment(\.modelContext) private var modelContext

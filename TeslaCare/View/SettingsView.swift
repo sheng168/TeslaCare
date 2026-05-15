@@ -12,7 +12,7 @@ import OSLog
 import UniformTypeIdentifiers
 import TeslaSwift
 
-private let logger = Logger(subsystem: "com.teslacare", category: "Settings")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "Settings")
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext

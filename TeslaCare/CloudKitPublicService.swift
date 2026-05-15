@@ -11,7 +11,7 @@ import CoreLocation
 import MapKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "CloudKit")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "CloudKit")
 
 @Observable
 final class CloudKitPublicService {

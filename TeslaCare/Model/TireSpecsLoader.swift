@@ -6,7 +6,7 @@
 import Foundation
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "Model")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "Model")
 
 // MARK: - Decodable models for TireSpecs.json
 

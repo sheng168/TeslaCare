@@ -10,7 +10,7 @@ import SwiftData
 import PhotosUI
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "AddMeasurement")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "AddMeasurement")
 
 struct AddMeasurementView: View {
     @Environment(\.modelContext) private var modelContext

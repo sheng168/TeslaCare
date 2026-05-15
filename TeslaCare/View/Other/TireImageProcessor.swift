@@ -7,7 +7,7 @@ import Vision
 import UIKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.teslacare", category: "ImageProcessing")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "ImageProcessing")
 
 enum TireImageProcessor {
 

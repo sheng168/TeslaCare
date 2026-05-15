@@ -13,7 +13,7 @@ import OSLog
 import TeslaSwift
 import AuthenticationServices
 
-private let logger = Logger(subsystem: "com.teslacare", category: "TeslaSync")
+private let logger = AppLogger(subsystem: "com.teslacare", category: "TeslaSync")
 
 @MainActor
 class TeslaAuthManager: ObservableObject {
