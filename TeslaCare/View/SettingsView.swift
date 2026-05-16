@@ -10,6 +10,7 @@ import SwiftData
 import CloudKit
 import OSLog
 import UniformTypeIdentifiers
+import UserNotifications
 import TeslaSwift
 
 private let logger = Logger(subsystem: "com.teslacare", category: "Settings")
@@ -21,7 +22,8 @@ struct SettingsView: View {
     @AppStorage("replacementThreshold") private var replacementThreshold = 2.0
     @AppStorage("warningThreshold") private var warningThreshold = 4.0
     @AppStorage("teslaAccessToken") private var teslaAccessToken: String?
-    
+    @EnvironmentObject private var authManager: TeslaAuthManager
+
     @State private var showingTeslaAuth = false
     @State private var iCloudStatus: CKAccountStatus = .couldNotDetermine
     @Query private var cars: [Car]
@@ -72,17 +74,33 @@ struct SettingsView: View {
                             Image(systemName: "bolt.car.fill")
                             Text("Tesla Account")
                             Spacer()
-                            if teslaAccessToken != nil {
+                            if authManager.isAuthenticated {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
                             }
+                        }
+                    }
+
+                    if authManager.isAuthenticated {
+                        Button(role: .destructive) {
+                            authManager.logout()
+                        } label: {
+                            Label("Sign Out of Tesla", systemImage: "rectangle.portrait.and.arrow.right")
                         }
                     }
                 }
                 
                 Section("Notifications") {
                     Toggle("Enable Reminders", isOn: $showNotifications)
-                    
+                        .onChange(of: showNotifications) { _, enabled in
+                            if enabled {
+                                NotificationManager.requestPermission()
+                                cars.forEach { NotificationManager.scheduleUpdateReminder(for: $0) }
+                            } else {
+                                UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+                            }
+                        }
+
                     if showNotifications {
                         NavigationLink("Configure Reminders") {
                             NotificationSettingsView()
