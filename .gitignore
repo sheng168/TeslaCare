@@ -1,1 +1,7 @@
 Breakpoints_v2.xcbkptlist
+vendor/bundle
+
+# Fastlane secrets
+fastlane/api_key.json
+fastlane/AuthKey_*.p8
+DerivedData

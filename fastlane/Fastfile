@@ -1,0 +1,72 @@
+default_platform(:ios)
+
+SCHEME     = "TeslaCare"
+PROJECT    = "TeslaCare.xcodeproj"
+SIMULATOR  = "platform=iOS Simulator,name=iPhone 16 Pro,OS=latest"
+
+platform :ios do
+
+  before_all do
+    key = JSON.parse(File.read("fastlane/api_key.json"))
+    app_store_connect_api_key(
+      key_id: key["key_id"],
+      issuer_id: key["issuer_id"],
+      key_filepath: key["key_filepath"],
+      in_house: key["in_house"]
+    )
+  end
+
+  desc "Generate App Store screenshots via ScreenshotTests"
+  lane :screenshots do
+    run_tests(
+      project: PROJECT,
+      scheme: SCHEME,
+      only_testing: "TeslaCareTests/ScreenshotTests",
+      destination: SIMULATOR,
+      derived_data_path: "DerivedData",
+      fail_build: false
+    )
+    UI.success "Screenshots written to Screenshots/"
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    increment_build_number(
+      build_number: latest_testflight_build_number(
+        app_identifier: "us.jsy.TeslaCare"
+      ) + 1,
+      xcodeproj: PROJECT
+    )
+    build_app(
+      project: PROJECT,
+      scheme: SCHEME,
+      export_method: "app-store",
+      output_directory: "build"
+    )
+    upload_to_testflight(skip_waiting_for_build_processing: true)
+  end
+
+  desc "Build and submit to the App Store"
+  lane :release do
+    increment_build_number(
+      build_number: latest_testflight_build_number(
+        app_identifier: "us.jsy.TeslaCare"
+      ) + 1,
+      xcodeproj: PROJECT
+    )
+    build_app(
+      project: PROJECT,
+      scheme: SCHEME,
+      export_method: "app-store",
+      output_directory: "build"
+    )
+    upload_to_app_store(
+      force: true,
+      reject_if_possible: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      submit_for_review: false
+    )
+  end
+
+end
