@@ -14,7 +14,8 @@ struct PublishListingView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var listingType: ListingType = .forSale
-    @State private var listingURLText = ""
+    @State private var listingURLText: String
+    @State private var askingPriceText: String
     @State private var hasFSD: Bool
     @State private var freeSupercharging: Bool
     @State private var isPublishing = false
@@ -22,6 +23,8 @@ struct PublishListingView: View {
 
     init(car: Car) {
         self.car = car
+        _listingURLText = State(initialValue: car.listingURL ?? "")
+        _askingPriceText = State(initialValue: car.purchasePrice.map { String(Int($0)) } ?? "")
         _hasFSD = State(initialValue: car.hasFSD ?? false)
         _freeSupercharging = State(initialValue: car.freeSupercharging ?? false)
     }
@@ -44,6 +47,17 @@ struct PublishListingView: View {
                     }
                     .pickerStyle(.segmented)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                }
+
+                Section {
+                    HStack {
+                        Text("$")
+                            .foregroundStyle(.secondary)
+                        TextField("0", text: $askingPriceText)
+                            .keyboardType(.numberPad)
+                    }
+                } header: {
+                    Text("Asking Price (optional)")
                 }
 
                 Section {
@@ -102,12 +116,18 @@ struct PublishListingView: View {
         }
     }
 
+    private var askingPrice: Double? {
+        Double(askingPriceText.trimmingCharacters(in: .whitespaces))
+    }
+
     private func publish() {
         isPublishing = true
         Task {
             do {
                 try await cloudKitService.publishCar(car, listingType: listingType, listingURL: listingURL,
-                                                     hasFSD: hasFSD, freeSupercharging: freeSupercharging)
+                                                     askingPrice: askingPrice, hasFSD: hasFSD, freeSupercharging: freeSupercharging)
+                car.listingURL = listingURL?.absoluteString
+                car.purchasePrice = askingPrice
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription
