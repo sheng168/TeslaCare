@@ -1,0 +1,372 @@
+//
+//  TeslaAuthManager.swift
+//  TeslaCare
+//
+//  Created by Jin on 5/8/26.
+//
+
+import SwiftUI
+import SwiftData
+import Combine
+import Foundation
+import OSLog
+import TeslaSwift
+
+private let logger = Logger(subsystem: "com.teslacare", category: "TeslaSync")
+
+@MainActor
+class TeslaAuthManager: ObservableObject {
+    @Published var isAuthenticated = false
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    @Published var vehicles: [Vehicle] = []
+    @Published var vehicleData: [String: VehicleExtended] = [:]
+    @Published var vehicleChargingSites: [String: NearbyChargingSites] = [:]
+
+    private var api: TeslaSwift?
+    private let clientID = "b7b3546b95f7-453c-ac19-5efbd8d3bd35"
+    private let clientSecret = "ta-secret.6zpdiNudRJvDZ-P_"
+    private let redirectURI = "teslacare://fob.jsy.us/login"
+
+    private var modelContext: ModelContext?
+
+    init() {
+        setupAPI()
+    }
+
+    /// Called once the SwiftData ModelContext is available (from TeslaCareApp.onAppear).
+    func setup(context: ModelContext) {
+        guard modelContext == nil else {
+            logger.debug("setup: already configured, skipping")
+            return
+        }
+        logger.info("setup: configuring model context")
+        modelContext = context
+        checkExistingAuth()
+    }
+
+    private func setupAPI() {
+        logger.info("setupAPI: initializing TeslaSwift fleet API")
+        api = TeslaSwift(teslaAPI: .fleetAPI(
+            region: .northAmericaAsiaPacific,
+            clientID: clientID,
+            clientSecret: clientSecret,
+            redirectURI: redirectURI,
+            scopes: [.openId, .offlineAccess, .vehicleDeviceData, .vehicleCmds]
+        ))
+        api?.debuggingEnabled = true
+    }
+
+    // Returns the single canonical credential for write operations, deleting any duplicates.
+    private func credential() -> TeslaCredential {
+        let all = (try? modelContext?.fetch(FetchDescriptor<TeslaCredential>())) ?? []
+        if all.count > 1 {
+            // Keep the one with the most data (has an access token), delete the rest
+            let sorted = all.sorted { $0.accessToken != nil && $1.accessToken == nil }
+            sorted.dropFirst().forEach { modelContext?.delete($0) }
+            return sorted[0]
+        }
+        if let cred = all.first { return cred }
+        let cred = TeslaCredential()
+        modelContext?.insert(cred)
+        return cred
+    }
+
+    private func saveTokens(access: String?, refresh: String?, expiry: Double?) {
+        logger.info("saveTokens: access=\(access != nil) refresh=\(refresh != nil)")
+        let cred = credential()
+        cred.accessToken = access
+        cred.refreshToken = refresh
+        cred.tokenExpiry = expiry
+        try? modelContext?.save()
+    }
+
+    private func checkExistingAuth() {
+        logger.info("checkExistingAuth: checking stored credentials")
+        // Read-only fetch — do not auto-create a credential here, which would accumulate
+        // empty records each launch if the user hasn't authenticated yet.
+        let cred = (try? modelContext?.fetch(FetchDescriptor<TeslaCredential>()))?.first
+        guard let accessToken = cred?.accessToken, !accessToken.isEmpty else {
+            logger.info("checkExistingAuth: no access token stored")
+            isAuthenticated = false
+            return
+        }
+        guard let refreshToken = cred?.refreshToken, !refreshToken.isEmpty else {
+            logger.info("checkExistingAuth: no refresh token stored")
+            isAuthenticated = false
+            return
+        }
+
+        let token = AuthToken(accessToken: accessToken)
+        token.refreshToken = refreshToken
+
+        let expiryDate = cred?.tokenExpiry.map { Date(timeIntervalSince1970: $0) }
+        if let expiryDate, expiryDate > Date() {
+            logger.info("checkExistingAuth: token valid until \(expiryDate), reusing")
+            // Set expiresIn so AuthToken.isValid returns true — otherwise TeslaSwift silently
+            // auto-refreshes on every call, consuming the refresh token without saving the new one.
+            token.createdAt = Date()
+            token.expiresIn = expiryDate.timeIntervalSince(Date())
+            api?.reuse(token: token)
+            isAuthenticated = true
+            Task { await fetchVehicles() }
+        } else {
+            logger.info("checkExistingAuth: token expired or no expiry stored, refreshing")
+            // Load token so refreshToken is available to api.refreshToken()
+            api?.reuse(token: token)
+            Task { await self.refreshToken() }
+        }
+    }
+
+    func getAuthorizationURL() -> URL? {
+        let url = api?.authenticateWebNativeURL()
+        logger.info("getAuthorizationURL: \(url != nil ? "ok" : "nil — api not initialized")")
+        return url
+    }
+
+    func authenticate(callbackURL: URL) async {
+        guard let api = api else {
+            logger.error("authenticate: api is nil")
+            errorMessage = "API not initialized"
+            return
+        }
+
+        logger.info("authenticate: exchanging callback URL for token")
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let token = try await api.authenticateWebNative(url: callbackURL)
+            let expiry = token.expiresIn.map { Date().addingTimeInterval($0).timeIntervalSince1970 }
+            logger.info("authenticate: success, token expires in \(token.expiresIn ?? 0)s")
+            saveTokens(access: token.accessToken, refresh: token.refreshToken, expiry: expiry)
+            isAuthenticated = true
+            await fetchVehicles()
+        } catch {
+            logger.error("authenticate: failed — \(error)")
+            errorMessage = "Authentication failed: \(error.localizedDescription)"
+            isAuthenticated = false
+        }
+
+        isLoading = false
+    }
+
+    func refreshToken() async {
+        guard let api = api, credential().refreshToken != nil else {
+            logger.warning("refreshToken: no api or refresh token, logging out")
+            logout()
+            return
+        }
+
+        logger.info("refreshToken: starting")
+        do {
+            _ = try await api.refreshToken()
+            if let token = api.token {
+                let expiry = token.expiresIn.map { Date().addingTimeInterval($0).timeIntervalSince1970 }
+                logger.info("refreshToken: success")
+                saveTokens(access: token.accessToken, refresh: token.refreshToken, expiry: expiry)
+                isAuthenticated = true
+                await fetchVehicles()
+            }
+        } catch {
+            logger.error("refreshToken: failed — \(error)")
+            logout()
+        }
+    }
+
+    func fetchVehicles() async {
+        guard let api = api else {
+            logger.warning("fetchVehicles: api is nil — not authenticated?")
+            return
+        }
+
+        logger.info("fetchVehicles: starting")
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let fetchedVehicles = try await api.getVehicles()
+            logger.info("fetchVehicles: got \(fetchedVehicles.count) vehicle(s)")
+            vehicles = fetchedVehicles
+            await fetchExtendedData(for: fetchedVehicles)
+        } catch {
+            logger.error("fetchVehicles: \(error)")
+            errorMessage = "Failed to fetch vehicles: \(error.localizedDescription)"
+        }
+
+        isLoading = false
+        logger.info("fetchVehicles: done")
+    }
+
+    private func fetchExtendedData(for vehicles: [Vehicle]) async {
+        guard let api else { return }
+        logger.info("fetchExtendedData: fetching data for \(vehicles.count) vehicle(s)")
+        await withTaskGroup(of: (String, VehicleExtended?, NearbyChargingSites?).self) { group in
+            for vehicle in vehicles {
+                guard let vin = vehicle.vin else { continue }
+                group.addTask {
+                    async let extended = try? api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .driveState, .chargeState])
+                    async let nearby = try? api.getNearbyChargingSites(vehicle)
+                    return (vin, await extended, await nearby)
+                }
+            }
+            for await (vin, data, nearby) in group {
+                logger.info("fetchExtendedData: vin=\(vin) extended=\(data != nil) nearby=\(nearby != nil)")
+                if let data { vehicleData[vin] = data }
+                if let nearby { vehicleChargingSites[vin] = nearby }
+            }
+        }
+    }
+
+    func logout() {
+        logger.info("logout: clearing credentials and session")
+        saveTokens(access: nil, refresh: nil, expiry: nil)
+        isAuthenticated = false
+        vehicles = []
+        vehicleData = [:]
+        if let api = api {
+            api.reuse(token: AuthToken(accessToken: ""))
+        }
+    }
+
+    // MARK: - Daily Sync
+
+    @AppStorage("lastTeslaSyncDate") var lastSyncDate: Double = 0
+
+    var needsDailySync: Bool {
+        Date().timeIntervalSince1970 - lastSyncDate > 86400
+    }
+
+    func syncCars(into context: ModelContext) {
+        logger.info("syncCars: \(self.vehicles.count) vehicle(s), \(self.vehicleData.count) with extended data")
+        for vehicle in vehicles {
+            guard let vin = vehicle.vin else { continue }
+            logger.info("syncCars: processing vin=\(vin)")
+
+            let predicate = #Predicate<Car> { $0.vin == vin }
+            let existing = (try? context.fetch(FetchDescriptor(predicate: predicate)))?.first
+
+            let vehicleState = vehicleData[vin]?.vehicleState
+
+            let car: Car
+            if let existing {
+                car = existing
+            } else {
+                car = Car(name: "", make: "Tesla", model: "", year: 0)
+                car.vin = vin
+                context.insert(car)
+            }
+
+            if let displayName = vehicle.displayName, !displayName.isEmpty {
+                car.name = displayName
+            }
+            car.make = "Tesla"
+            if let model = vinModel(vin) { car.model = model }
+            if let year = vinYear(vin) { car.year = year }
+            if let config = vehicleData[vin]?.vehicleConfig {
+                if let trim = config.trimBadging { car.trimBadging = trim }
+                if let perf = config.perfConfig { car.perfConfig = perf }
+            }
+            if let codes = vehicle.optionCodes {
+                let codeSet = Set(codes.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+                // APF2 = FSD Hardware 2.0, AP3 = Enhanced Autopilot with FSD capability
+                car.hasFSD = codeSet.contains("APF2") || codeSet.contains("AP3")
+                // DA02 = Free Unlimited Supercharging
+                car.freeSupercharging = codeSet.contains("DA02")
+            }
+
+            if let odometer = vehicleState?.odometer {
+                let reading = MileageReading(date: Date(), mileage: Int(odometer), source: "tesla_api")
+                reading.car = car
+                context.insert(reading)
+            }
+            if let state = vehicleState, state.tpms_pressure_fl != nil {
+                let reading = TPMSReading(
+                    date: Date(),
+                    frontLeft: state.tpms_pressure_fl,
+                    frontRight: state.tpms_pressure_fr,
+                    rearLeft: state.tpms_pressure_rl,
+                    rearRight: state.tpms_pressure_rr,
+                    outsideTemperature: vehicleData[vin]?.climateState?.outsideTemperature?.value.converted(to: .celsius).value
+                )
+                reading.car = car
+                context.insert(reading)
+            }
+            if let charge = vehicleData[vin]?.chargeState {
+                if let level = charge.batteryLevel { car.batteryLevel = level }
+                if let state = charge.chargingState { car.chargingState = state.rawValue }
+            }
+            if let driveState = vehicleData[vin]?.driveState {
+                if let lat = driveState.latitude { car.latitude = lat }
+                if let lon = driveState.longitude { car.longitude = lon }
+                if let hdg = driveState.heading { car.heading = hdg }
+                if driveState.latitude != nil { car.locationUpdatedAt = Date() }
+            }
+            // Replace nearby charger records with fresh data
+            if let sites = vehicleChargingSites[vin] {
+                // Remove stale records
+                let stale = car.nearbyChargers ?? []
+                for old in stale { context.delete(old) }
+
+                let superchargers = (sites.superchargers ?? []).map { sc in
+                    NearbyCharger(
+                        name: sc.name ?? "Supercharger",
+                        chargerType: "supercharger",
+                        rawType: sc.type,
+                        latitude: sc.location?.latitude,
+                        longitude: sc.location?.longitude,
+                        distanceMiles: sc.distance?.miles ?? 0,
+                        availableStalls: sc.availableStalls,
+                        totalStalls: sc.totalStalls,
+                        siteClosed: sc.siteClosed ?? false
+                    )
+                }
+                let destinations = (sites.destinationChargers ?? []).map { dc in
+                    NearbyCharger(
+                        name: dc.name ?? "Destination Charger",
+                        chargerType: "destination",
+                        rawType: dc.type,
+                        latitude: dc.location?.latitude,
+                        longitude: dc.location?.longitude,
+                        distanceMiles: dc.distance?.miles ?? 0,
+                        availableStalls: nil,
+                        totalStalls: nil,
+                        siteClosed: false
+                    )
+                }
+                for charger in superchargers + destinations {
+                    charger.car = car
+                    context.insert(charger)
+                }
+            }
+
+            NotificationManager.scheduleUpdateReminder(for: car)
+        }
+        lastSyncDate = Date().timeIntervalSince1970
+    }
+
+    func vinYear(_ vin: String) -> Int? {
+        guard vin.count >= 10 else { return nil }
+        let yearChar = vin[vin.index(vin.startIndex, offsetBy: 9)]
+        let yearMap: [Character: Int] = [
+            "A": 2010, "B": 2011, "C": 2012, "D": 2013, "E": 2014,
+            "F": 2015, "G": 2016, "H": 2017, "J": 2018, "K": 2019,
+            "L": 2020, "M": 2021, "N": 2022, "P": 2023, "R": 2024,
+            "S": 2025, "T": 2026
+        ]
+        return yearMap[yearChar]
+    }
+
+    func vinModel(_ vin: String) -> String? {
+        guard vin.count >= 4 else { return nil }
+        let modelChar = vin[vin.index(vin.startIndex, offsetBy: 3)]
+        switch modelChar {
+        case "S": return "Model S"
+        case "X": return "Model X"
+        case "3": return "Model 3"
+        case "Y": return "Model Y"
+        case "C": return "Cybertruck"
+        default:  return nil
+        }
+    }
+}
