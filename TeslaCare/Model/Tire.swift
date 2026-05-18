@@ -27,6 +27,9 @@ final class Tire {
     
     @Relationship(deleteRule: .cascade, inverse: \TireMeasurement.tire)
     var measurements: [TireMeasurement]?
+
+    @Relationship(deleteRule: .cascade, inverse: \TireRepairEvent.tire)
+    var repairEvents: [TireRepairEvent]?
     
     init(brand: String, 
          modelName: String, 

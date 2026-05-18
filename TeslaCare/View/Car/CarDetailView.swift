@@ -35,6 +35,7 @@ struct CarDetailView: View {
     @AppStorage("detail.rotationExpanded") private var rotationExpanded = true
     @AppStorage("detail.replacementExpanded") private var replacementExpanded = true
     @AppStorage("detail.airFilterExpanded") private var airFilterExpanded = true
+    @AppStorage("detail.repairExpanded") private var repairExpanded = true
     @AppStorage("detail.measurementsExpanded") private var measurementsExpanded = true
 
     var sortedMeasurements: [TireMeasurement] {
@@ -55,6 +56,7 @@ struct CarDetailView: View {
 
                 rotationHistorySection
                 replacementHistorySection
+                repairHistorySection
                 airFilterHistorySection
                 measurementHistorySection
             }
@@ -472,6 +474,27 @@ struct CarDetailView: View {
                     .padding(.top, 4)
                 } label: {
                     Text("Replacement History")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private var repairHistorySection: some View {
+        if let repairs = car.repairEvents?.sorted(by: { $0.date > $1.date }), !repairs.isEmpty {
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $repairExpanded) {
+                    VStack(spacing: 8) {
+                        ForEach(repairs) { repair in
+                            TireRepairEventRow(repair: repair)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("Repair History")
                         .font(.headline)
                         .foregroundStyle(.primary)
                 }

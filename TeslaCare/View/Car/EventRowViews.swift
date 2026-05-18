@@ -119,6 +119,69 @@ struct ReplacementEventRow: View {
     }
 }
 
+struct TireRepairEventRow: View {
+    let repair: TireRepairEvent
+
+    var body: some View {
+        HStack(alignment: .top) {
+            Image(systemName: repair.repairType.systemImage)
+                .font(.title3)
+                .foregroundStyle(.orange)
+                .frame(width: 30)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(repair.repairDescription)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                if !repair.shopName.isEmpty {
+                    Text(repair.shopName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(repair.date, format: .dateTime.month().day().year())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    if let mileage = repair.mileage {
+                        Text("\(mileage.formatted()) miles")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let cost = repair.cost {
+                        Text("$\(cost, format: .number.precision(.fractionLength(2)))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if !repair.notes.isEmpty {
+                    Text(repair.notes)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer()
+
+            if let photo = repair.photos?.sorted(by: { $0.sortIndex < $1.sortIndex }).first,
+               let image = UIImage(data: photo.data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 struct AirFilterChangeRow: View {
     let filterChange: AirFilterChangeEvent
 

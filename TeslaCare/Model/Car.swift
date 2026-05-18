@@ -50,7 +50,10 @@ final class Car {
     
     @Relationship(deleteRule: .cascade, inverse: \AirFilterChangeEvent.car)
     var airFilterChanges: [AirFilterChangeEvent]?
-    
+
+    @Relationship(deleteRule: .cascade, inverse: \TireRepairEvent.car)
+    var repairEvents: [TireRepairEvent]?
+
     @Relationship(deleteRule: .cascade, inverse: \Tire.car)
     var tires: [Tire]?
 

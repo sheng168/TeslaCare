@@ -18,6 +18,7 @@ struct TireDetailView: View {
     
     @State private var showingAddMeasurement = false
     @State private var showingEditTire = false
+    @State private var showingLogRepair = false
     
     var sortedMeasurements: [TireMeasurement] {
         (tire.measurements ?? []).sorted { $0.date > $1.date }
@@ -75,6 +76,9 @@ struct TireDetailView: View {
                 // Tire Information
                 tireInfoSection
                 
+                // Repair History
+                repairHistorySection
+
                 // Measurement History
                 if !sortedMeasurements.isEmpty {
                     measurementHistorySection
@@ -93,6 +97,12 @@ struct TireDetailView: View {
                         Label("Add Measurement", systemImage: "ruler")
                     }
                     
+                    Button {
+                        showingLogRepair = true
+                    } label: {
+                        Label("Log Repair", systemImage: "wrench.and.screwdriver")
+                    }
+
                     Button {
                         showingEditTire = true
                     } label: {
@@ -118,6 +128,9 @@ struct TireDetailView: View {
         }
         .sheet(isPresented: $showingEditTire) {
             EditTireView(tire: tire)
+        }
+        .sheet(isPresented: $showingLogRepair) {
+            LogTireRepairView(tire: tire)
         }
     }
     
@@ -481,8 +494,33 @@ struct TireDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
+    // MARK: - Repair History Section
+
+    @ViewBuilder
+    private var repairHistorySection: some View {
+        let repairs = (tire.repairEvents ?? []).sorted { $0.date > $1.date }
+        if !repairs.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Repair History")
+                    .font(.headline)
+
+                Divider()
+
+                ForEach(repairs) { repair in
+                    RepairHistoryRow(repair: repair)
+                    if repair.id != repairs.last?.id {
+                        Divider()
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
     // MARK: - Helper Functions
-    
+
     private func treadColor(for measurement: TireMeasurement) -> Color {
         if measurement.isDanger {
             return .red
@@ -517,6 +555,70 @@ struct TireDetailView: View {
 }
 
 // MARK: - Supporting Views
+
+struct RepairHistoryRow: View {
+    let repair: TireRepairEvent
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(repair.repairType.rawValue, systemImage: repair.repairType.systemImage)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                Spacer()
+
+                Text(repair.date, style: .date)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !repair.shopName.isEmpty {
+                Label(repair.shopName, systemImage: "mappin.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if repair.mileage != nil || repair.cost != nil {
+                HStack(spacing: 8) {
+                    if let mileage = repair.mileage {
+                        Text("\(mileage.formatted()) mi")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let cost = repair.cost {
+                        Text(cost.formatted(.currency(code: "USD")))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if !repair.notes.isEmpty {
+                Text(repair.notes)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let repairPhotos = repair.photos?.sorted(by: { $0.sortIndex < $1.sortIndex }),
+               !repairPhotos.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(repairPhotos) { photo in
+                            if let image = UIImage(data: photo.data) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 64, height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 struct MetricCard: View {
     let title: String

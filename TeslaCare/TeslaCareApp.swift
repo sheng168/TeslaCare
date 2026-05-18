@@ -23,6 +23,8 @@ struct TeslaCareApp: App {
             Tire.self,
             TireMeasurement.self,
             TirePhoto.self,
+            TireRepairEvent.self,
+            TireRepairPhoto.self,
             TireRotationEvent.self,
             TireReplacementEvent.self,
             AirFilterChangeEvent.self,
