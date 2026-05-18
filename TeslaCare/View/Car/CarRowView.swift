@@ -85,19 +85,21 @@ struct CarRowView: View {
                     } else {
                         Text("-")
                     }
-                    
+
                     ForEach(TirePosition.allCases, id: \.self) { position in
                         Text(position.abbreviation)
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
+
+                    Text("") // date column placeholder
                 }
                 if hasTpms {
                     GridRow {
                         Text("PSI")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        
+
                         ForEach(TirePosition.allCases, id: \.self) { position in
                             if let psi = car.tpmsPressure(for: position) {
                                 Text(String(format: "%.0f", psi * 14.504))
@@ -106,6 +108,14 @@ struct CarRowView: View {
                             } else {
                                 Text("—").font(.caption2).foregroundStyle(.tertiary)
                             }
+                        }
+
+                        if let date = psiLastUpdated {
+                            Text(date, style: .relative)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            Text("")
                         }
                     }
                 }
@@ -123,6 +133,14 @@ struct CarRowView: View {
                             } else {
                                 Text("—").font(.caption2).foregroundStyle(.tertiary)
                             }
+                        }
+
+                        if let date = treadLastUpdated {
+                            Text(date, style: .relative)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            Text("")
                         }
                     }
                 }
@@ -168,6 +186,14 @@ struct CarRowView: View {
         }
     }
 
+    private var psiLastUpdated: Date? { car.tpmsUpdatedAt }
+
+    private var treadLastUpdated: Date? {
+        TirePosition.allCases
+            .compactMap { car.latestMeasurement(for: $0)?.date }
+            .max()
+    }
+
     private var lastUpdatedDate: Date? {
         let tpmsDate = car.tpmsUpdatedAt
         let treadDate = TirePosition.allCases
@@ -196,102 +222,56 @@ struct CarRowView: View {
     }
 }
 
-#Preview("Car with Good Health") {
+#Preview("Date Ranges") {
+    struct AllRowsPreview: View {
+        @Query private var cars: [Car]
+        var body: some View {
+            List(cars) { car in CarRowView(car: car) }
+                .environment(LocationManager())
+        }
+    }
+
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, TPMSReading.self, MileageReading.self, configurations: config)
 
-    let car = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
-    car.trimBadging = "lr awd"
-    car.batteryLevel = 82
-    car.chargingState = "Charging"
-    container.mainContext.insert(car)
+    let rows: [(String, Double, TimeInterval, TimeInterval)] = [
+        ("Just Now",   8.0, -30,              -120),
+        ("Minutes",    7.5, -5 * 60,          -12 * 60),
+        ("Hours",      6.5, -3 * 3600,        -8 * 3600),
+        ("Days",       5.0, -2 * 86400,       -4 * 86400),
+        ("Weeks",      3.5, -10 * 86400,      -21 * 86400),
+        ("Months",     2.5, -45 * 86400,      -90 * 86400),
+        ("Long Ago",   1.5, -200 * 86400,     -400 * 86400),
+        ("No PSI",     8.0, 0,                -3 * 86400),
+    ]
 
-    let mileage = MileageReading(date: Date(), mileage: 24_831)
-    mileage.car = car
-    container.mainContext.insert(mileage)
+    for (name, tread, psiAgo, treadAgo) in rows {
+        let car = Car(name: name, make: "Tesla", model: "Model 3", year: 2023)
+        container.mainContext.insert(car)
 
-    let reading = TPMSReading(date: Date(), frontLeft: 2.93, frontRight: 2.93, rearLeft: 2.76, rearRight: 2.79)
-    reading.car = car
-    container.mainContext.insert(reading)
+        if psiAgo != 0 {
+            let reading = TPMSReading(
+                date: Date().addingTimeInterval(psiAgo),
+                frontLeft: 2.93, frontRight: 2.90, rearLeft: 2.76, rearRight: 2.79
+            )
+            reading.car = car
+            container.mainContext.insert(reading)
+        }
 
-    // Add tires and measurements for good health
-    for position in TirePosition.allCases {
-        let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: position)
-        tire.car = car
-        container.mainContext.insert(tire)
-        
-        let measurement = TireMeasurement(date: Date(), treadDepth: 8.0, position: position, tire: tire, notes: "", mileage: nil)
-        measurement.car = car
-        container.mainContext.insert(measurement)
-    }
-    
-    return List {
-        CarRowView(car: car)
-    }
-    .modelContainer(container)
-    .environment(LocationManager())
-}
+        for position in TirePosition.allCases {
+            let tire = Tire(brand: "Michelin", modelName: "Pilot Sport", size: "235/45R18", currentPosition: position)
+            tire.car = car
+            container.mainContext.insert(tire)
 
-#Preview("Car with Warning Health") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
-    
-    let car = Car(name: "Family SUV", make: "Honda", model: "CR-V", year: 2020)
-    container.mainContext.insert(car)
-    
-    // Add tires and measurements for warning health
-    for position in TirePosition.allCases {
-        let tire = Tire(brand: "Goodyear", modelName: "Assurance", size: "225/65R17", currentPosition: position)
-        tire.car = car
-        container.mainContext.insert(tire)
-        
-        let measurement = TireMeasurement(date: Date(), treadDepth: 3.5, position: position, tire: tire, notes: "", mileage: nil)
-        measurement.car = car
-        container.mainContext.insert(measurement)
+            let measurement = TireMeasurement(
+                date: Date().addingTimeInterval(treadAgo),
+                treadDepth: tread, position: position, tire: tire, notes: "", mileage: nil
+            )
+            measurement.car = car
+            container.mainContext.insert(measurement)
+        }
     }
-    
-    return List {
-        CarRowView(car: car)
-    }
-    .modelContainer(container)
-    .environment(LocationManager())
-}
 
-#Preview("Car with Danger Health") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, Tire.self, configurations: config)
-    
-    let car = Car(name: "", make: "Toyota", model: "Camry", year: 2018)
-    container.mainContext.insert(car)
-    
-    // Add tires and measurements for danger health
-    for position in TirePosition.allCases {
-        let tire = Tire(brand: "Bridgestone", modelName: "Turanza", size: "215/55R17", currentPosition: position)
-        tire.car = car
-        container.mainContext.insert(tire)
-        
-        let measurement = TireMeasurement(date: Date(), treadDepth: 1.5, position: position, tire: tire, notes: "", mileage: nil)
-        measurement.car = car
-        container.mainContext.insert(measurement)
-    }
-    
-    return List {
-        CarRowView(car: car)
-    }
-    .modelContainer(container)
-    .environment(LocationManager())
-}
-
-#Preview("Car with No Measurements") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Car.self, TireMeasurement.self, configurations: config)
-    
-    let car = Car(name: "Work Truck", make: "Ford", model: "F-150", year: 2022)
-    container.mainContext.insert(car)
-    
-    return List {
-        CarRowView(car: car)
-    }
-    .modelContainer(container)
-    .environment(LocationManager())
+    return AllRowsPreview()
+        .modelContainer(container)
 }
