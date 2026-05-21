@@ -310,7 +310,16 @@ struct AddMeasurementView: View {
                         Button {
                             showingCoinScan = true
                         } label: {
-                            Label("Scan with Coin", systemImage: "camera.aperture")
+                            HStack {
+                                Label("Scan with Coin", systemImage: "camera.aperture")
+                                Spacer()
+                                Text("BETA")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(.orange, in: Capsule())
+                            }
                         }
 
                         // Single measurement mode (original)
