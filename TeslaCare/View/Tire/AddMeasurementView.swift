@@ -60,6 +60,12 @@ struct AddMeasurementView: View {
             _centerTreadDepth = State(initialValue: 8.0)
             _outerTreadDepth = State(initialValue: 8.0)
         }
+
+        // Prefill mileage from car's latest reading
+        if let carMileage = car.mileage {
+            _mileage = State(initialValue: String(carMileage))
+            _includeMileage = State(initialValue: true)
+        }
     }
     
     var body: some View {
