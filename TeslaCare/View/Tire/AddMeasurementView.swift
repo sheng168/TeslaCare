@@ -40,6 +40,7 @@ struct AddMeasurementView: View {
     @State private var showingCamera = false
     @State private var showingPhotoSource = false
     @State private var showingPhotoPicker = false
+    @State private var showingCoinScan = false
     
     init(car: Car, preselectedPosition: TirePosition? = nil) {
         self.car = car
@@ -306,6 +307,12 @@ struct AddMeasurementView: View {
                             .foregroundStyle(.secondary)
                         
                     } else {
+                        Button {
+                            showingCoinScan = true
+                        } label: {
+                            Label("Scan with Coin", systemImage: "camera.aperture")
+                        }
+
                         // Single measurement mode (original)
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -504,6 +511,12 @@ struct AddMeasurementView: View {
             }
             .photosPicker(isPresented: $showingPhotoPicker, selection: $photoPickerItems,
                           maxSelectionCount: 10, matching: .images)
+            .sheet(isPresented: $showingCoinScan) {
+                CoinScanView { depth in
+                    treadDepth = depth
+                    useMultipleMeasurements = false
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -601,6 +614,252 @@ struct AddMeasurementView: View {
         NotificationManager.scheduleUpdateReminder(for: car)
         logger.info("Measurement saved with \(originalPhotos.count) photo(s)")
         dismiss()
+    }
+}
+
+// MARK: - Coin Scan View
+
+private struct CoinScanView: View {
+    let onResult: (Double) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var coinType: CoinType = .quarter
+    @State private var capturedImage: UIImage?
+    @State private var scanResult: CoinTreadResult?
+    @State private var isAnalyzing = false
+    @State private var analysisError: String?
+    @State private var showingCamera = false
+    @State private var showingPhotoPicker = false
+    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var cameraImage: UIImage?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let result = scanResult {
+                    coinResultContent(result: result)
+                } else if capturedImage != nil, isAnalyzing {
+                    analyzingContent
+                } else {
+                    instructionsContent
+                }
+            }
+            .navigationTitle("Scan with Coin")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showingCamera) {
+                ImagePickerView(sourceType: .camera, selectedImage: $cameraImage)
+                    .ignoresSafeArea()
+            }
+            .photosPicker(isPresented: $showingPhotoPicker, selection: $photoPickerItem, matching: .images)
+            .onChange(of: cameraImage) { _, image in
+                if let image { processPhoto(image) }
+            }
+            .onChange(of: photoPickerItem) { _, item in
+                Task {
+                    if let data = try? await item?.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        processPhoto(image)
+                    }
+                }
+            }
+        }
+    }
+
+    private var instructionsContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("How to take the photo", systemImage: "info.circle")
+                        .font(.headline)
+                    VStack(alignment: .leading, spacing: 10) {
+                        instructionStep(1, "Insert a \(coinType == .quarter ? "quarter" : "penny") upright into a tread groove")
+                        instructionStep(2, "Position the camera at tread level, horizontal with the tire surface")
+                        instructionStep(3, "Make sure the coin is well-lit and fills most of the frame")
+                        instructionStep(4, "Take the photo")
+                    }
+                }
+                .padding()
+                .background(.quaternary.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                if let error = analysisError {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                }
+
+                Picker("Coin Type", selection: $coinType) {
+                    Text("Quarter (recommended)").tag(CoinType.quarter)
+                    Text("Penny").tag(CoinType.penny)
+                }
+                .pickerStyle(.segmented)
+
+                VStack(spacing: 12) {
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        Button {
+                            showingCamera = true
+                        } label: {
+                            Label("Take Photo", systemImage: "camera")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    }
+
+                    Button {
+                        showingPhotoPicker = true
+                    } label: {
+                        Label("Choose from Library", systemImage: "photo")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+            }
+            .padding()
+        }
+    }
+
+    private var analyzingContent: some View {
+        VStack(spacing: 20) {
+            if let image = capturedImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: 280)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            ProgressView("Analyzing photo...")
+                .controlSize(.large)
+        }
+        .padding()
+    }
+
+    @ViewBuilder
+    private func coinResultContent(result: CoinTreadResult) -> some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if let image = capturedImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 200)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
+                VStack(spacing: 8) {
+                    Text("Estimated Tread Depth")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(result.depthFormatted)
+                        .font(.system(size: 48, weight: .bold))
+                        .foregroundStyle(depthColor(for: result.estimatedDepth))
+                    Text(result.depthCategory)
+                        .font(.headline)
+                        .foregroundStyle(depthColor(for: result.estimatedDepth))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(depthColor(for: result.estimatedDepth).opacity(0.15))
+                        .clipShape(Capsule())
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(.quaternary.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                HStack(spacing: 6) {
+                    Image(systemName: confidenceIcon(for: result.confidence))
+                    Text(result.confidenceLabel)
+                        .font(.subheadline)
+                }
+                .foregroundStyle(confidenceColor(for: result.confidence))
+
+                Text("Accuracy is approximately ±1/32\". Adjust the value with the slider after tapping Use Estimate.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: 12) {
+                    Button {
+                        onResult(result.estimatedDepth)
+                        dismiss()
+                    } label: {
+                        Label("Use Estimate", systemImage: "checkmark")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+
+                    Button {
+                        capturedImage = nil
+                        scanResult = nil
+                        analysisError = nil
+                        photoPickerItem = nil
+                        cameraImage = nil
+                    } label: {
+                        Label("Try Again", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+            }
+            .padding()
+        }
+    }
+
+    private func instructionStep(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(number)")
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(.blue, in: Circle())
+            Text(text)
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func processPhoto(_ image: UIImage) {
+        capturedImage = image
+        isAnalyzing = true
+        scanResult = nil
+        analysisError = nil
+        Task {
+            let result = await TireImageProcessor.analyzeCoinTread(image, coinType: coinType)
+            isAnalyzing = false
+            if let result {
+                scanResult = result
+            } else {
+                capturedImage = nil
+                analysisError = "No coin detected. Ensure the coin is clearly visible and try again."
+            }
+        }
+    }
+
+    private func depthColor(for depth: Double) -> Color {
+        if depth <= 2.0 { return .red }
+        if depth <= 4.0 { return .orange }
+        return .green
+    }
+
+    private func confidenceIcon(for confidence: Double) -> String {
+        if confidence >= 0.75 { return "checkmark.circle.fill" }
+        if confidence >= 0.5  { return "exclamationmark.circle.fill" }
+        return "questionmark.circle.fill"
+    }
+
+    private func confidenceColor(for confidence: Double) -> Color {
+        if confidence >= 0.75 { return .green }
+        if confidence >= 0.5  { return .orange }
+        return .secondary
     }
 }
 
