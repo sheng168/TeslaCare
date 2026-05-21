@@ -75,6 +75,7 @@ struct TireCardView: View {
         return .primary
     }
     
+    @Environment(\.modelContext) private var modelContext
     @State private var isPressed = false
     
     var body: some View {
@@ -143,6 +144,12 @@ struct TireCardView: View {
                     }
                 }
 
+                if let measurement = measurement {
+                    Text(measurement.date, format: .relative(presentation: .named))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
                 if let psi = pressurePSI {
                     Text(String(format: "%.0f PSI", psi))
                         .font(.caption2)
@@ -185,7 +192,22 @@ struct TireCardView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
         #endif
-        measurement.treadDepth = max(0, min(12, measurement.treadDepth + delta))
+        let newDepth = max(0, min(12, measurement.treadDepth + delta))
+        let isStale = Date().timeIntervalSince(measurement.date) > 86_400
+        if isStale, let tire = measurement.tire {
+            let newMeasurement = TireMeasurement(
+                date: Date(),
+                treadDepth: newDepth,
+                position: measurement.position,
+                tire: tire,
+                notes: measurement.notes,
+                mileage: measurement.mileage
+            )
+            newMeasurement.car = measurement.car
+            modelContext.insert(newMeasurement)
+        } else {
+            measurement.treadDepth = newDepth
+        }
     }
 
     private func treadColor(for measurement: TireMeasurement) -> Color {
