@@ -97,20 +97,40 @@ struct TireCardView: View {
                 }
 
                 if let measurement = measurement {
-                    HStack(spacing: 4) {
-                        Text(measurement.treadDepthFormatted)
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundStyle(treadColor(for: measurement))
-                        if measurement.isDanger {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
-                                .font(.caption2)
-                        } else if measurement.isWarning {
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .foregroundStyle(.orange)
-                                .font(.caption2)
+                    HStack(spacing: 6) {
+                        Button {
+                            adjustDepth(measurement, by: -0.5)
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
+                        .buttonStyle(.plain)
+
+                        HStack(spacing: 4) {
+                            Text(measurement.treadDepthFormatted)
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundStyle(treadColor(for: measurement))
+                            if measurement.isDanger {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.red)
+                                    .font(.caption2)
+                            } else if measurement.isWarning {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .foregroundStyle(.orange)
+                                    .font(.caption2)
+                            }
+                        }
+
+                        Button {
+                            adjustDepth(measurement, by: 0.5)
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
                 } else {
                     HStack(spacing: 3) {
@@ -160,6 +180,14 @@ struct TireCardView: View {
         )
     }
     
+    private func adjustDepth(_ measurement: TireMeasurement, by delta: Double) {
+        #if os(iOS)
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        #endif
+        measurement.treadDepth = max(0, min(12, measurement.treadDepth + delta))
+    }
+
     private func treadColor(for measurement: TireMeasurement) -> Color {
         if measurement.isDanger {
             return .red
