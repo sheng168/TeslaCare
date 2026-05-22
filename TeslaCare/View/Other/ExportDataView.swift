@@ -11,28 +11,40 @@ import OSLog
 private let logger = Logger(subsystem: "com.teslacare", category: "Settings")
 
 struct ExportDataView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var showingShareSheet = false
     @State private var exportURL: URL?
+    @State private var errorMessage: String?
 
     var body: some View {
         List {
             Section {
-                Text("Export all your tire and maintenance data to a file that can be imported later or shared with another device.")
+                Text("Export your tire and maintenance data to a file that can be imported later or shared with another device.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
             Section("Export Format") {
                 Button {
-                    exportAsJSON()
+                    export(.json)
                 } label: {
-                    Label("Export as JSON", systemImage: "doc.text")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Export as JSON", systemImage: "doc.text")
+                        Text("Full backup — cars, tires, measurements, photos and events.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Button {
-                    exportAsCSV()
+                    export(.csv)
                 } label: {
-                    Label("Export as CSV", systemImage: "tablecells")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Export as CSV", systemImage: "tablecells")
+                        Text("Measurements only — opens in any spreadsheet app.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -43,14 +55,32 @@ struct ExportDataView: View {
                 ShareSheet(items: [url])
             }
         }
+        .alert("Export Failed", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
-    private func exportAsJSON() {
-        logger.info("Exporting as JSON")
-    }
+    private enum ExportFormat { case json, csv }
 
-    private func exportAsCSV() {
-        logger.info("Exporting as CSV")
+    private func export(_ format: ExportFormat) {
+        do {
+            let url: URL
+            switch format {
+            case .json:
+                logger.info("Exporting as JSON")
+                url = try DataTransferService.exportJSON(context: modelContext)
+            case .csv:
+                logger.info("Exporting as CSV")
+                url = try DataTransferService.exportCSV(context: modelContext)
+            }
+            exportURL = url
+            showingShareSheet = true
+        } catch {
+            logger.error("Export failed: \(error)")
+            errorMessage = error.localizedDescription
+        }
     }
 }
 
