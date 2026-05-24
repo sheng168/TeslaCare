@@ -8,6 +8,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import OSLog
+import SwiftData
 
 private let logger = Logger(subsystem: "com.teslacare", category: "Settings")
 

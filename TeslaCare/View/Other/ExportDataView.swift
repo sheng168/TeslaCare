@@ -7,6 +7,7 @@
 
 import SwiftUI
 import OSLog
+import SwiftData
 
 private let logger = Logger(subsystem: "com.teslacare", category: "Settings")
 
