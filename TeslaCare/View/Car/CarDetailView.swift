@@ -591,13 +591,29 @@ private struct EditCarView: View {
     @Environment(\.dismiss) private var dismiss
     let car: Car
 
+    @State private var name: String
+    @State private var make: String
+    @State private var model: String
+    @State private var year: Int
+    @State private var vin: String
+    @State private var trimBadging: String
+    @State private var perfConfig: String
     @State private var priceText: String
     @State private var urlText: String
     @State private var hasFSD: Bool
     @State private var freeSupercharging: Bool
 
+    private static let currentYear = Calendar.current.component(.year, from: Date())
+
     init(car: Car) {
         self.car = car
+        _name = State(initialValue: car.name)
+        _make = State(initialValue: car.make)
+        _model = State(initialValue: car.model)
+        _year = State(initialValue: car.year)
+        _vin = State(initialValue: car.vin ?? "")
+        _trimBadging = State(initialValue: car.trimBadging ?? "")
+        _perfConfig = State(initialValue: car.perfConfig ?? "")
         _priceText = State(initialValue: car.purchasePrice.map { String(format: "%.0f", $0) } ?? "")
         _urlText = State(initialValue: car.listingURL ?? "")
         _hasFSD = State(initialValue: car.hasFSD ?? false)
@@ -607,6 +623,30 @@ private struct EditCarView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Car Info") {
+                    TextField("Name (optional)", text: $name)
+                    TextField("Make", text: $make)
+                        .autocorrectionDisabled()
+                    TextField("Model", text: $model)
+                        .autocorrectionDisabled()
+                    Picker("Year", selection: $year) {
+                        ForEach((1990...(Self.currentYear + 1)).reversed(), id: \.self) { y in
+                            Text(String(y)).tag(y)
+                        }
+                    }
+                }
+
+                Section("Details") {
+                    TextField("VIN (optional)", text: $vin)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                    TextField("Trim Badge (e.g. P100D, LR AWD)", text: $trimBadging)
+                        .autocorrectionDisabled()
+                    TextField("Perf Config (e.g. sport)", text: $perfConfig)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+
                 Section("Purchase") {
                     HStack {
                         Text("$")
@@ -619,6 +659,7 @@ private struct EditCarView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                 }
+
                 Section("Features") {
                     Toggle("Full Self-Driving (FSD)", isOn: $hasFSD)
                     Toggle("Free Supercharging", isOn: $freeSupercharging)
@@ -632,12 +673,20 @@ private struct EditCarView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        car.name = name
+                        car.make = make
+                        car.model = model
+                        car.year = year
+                        car.vin = vin.isEmpty ? nil : vin
+                        car.trimBadging = trimBadging.isEmpty ? nil : trimBadging
+                        car.perfConfig = perfConfig.isEmpty ? nil : perfConfig
                         car.purchasePrice = Double(priceText)
                         car.listingURL = urlText.isEmpty ? nil : urlText
                         car.hasFSD = hasFSD
                         car.freeSupercharging = freeSupercharging
                         dismiss()
                     }
+                    .disabled(make.isEmpty || model.isEmpty)
                 }
             }
         }
