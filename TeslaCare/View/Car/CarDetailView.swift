@@ -19,6 +19,7 @@ struct CarDetailView: View {
     @State private var showingRotateTires = false
     @State private var showingReplaceTires = false
     @State private var showingLogAirFilter = false
+    @State private var showingUpdateMileage = false
     @State private var showingEditCar = false
     @State private var selectedPosition: TirePosition?
     @State private var showingPublishSheet = false
@@ -83,6 +84,12 @@ struct CarDetailView: View {
                 }
             }
 
+            ToolbarItem(placement: .secondaryAction) {
+                Button(action: { showingUpdateMileage = true }) {
+                    Label("Update Mileage", systemImage: "gauge.with.needle")
+                }
+            }
+
             ToolbarItem(placement: .primaryAction) {
                 if car.cloudKitRecordName != nil {
                     Button(action: { showingUnpublishConfirm = true }) {
@@ -137,6 +144,9 @@ struct CarDetailView: View {
         }
         .sheet(isPresented: $showingLogAirFilter) {
             LogAirFilterChangeView(car: car)
+        }
+        .sheet(isPresented: $showingUpdateMileage) {
+            LogMileageView(car: car)
         }
         .onChange(of: selectedPosition) { _, newValue in
             if newValue != nil {
@@ -225,6 +235,9 @@ struct CarDetailView: View {
                     actionButton("Replace", icon: "plus.circle.fill", color: .green) {
                         showingReplaceTires = true
                     }
+                    actionButton("Mileage", icon: "gauge.with.needle", color: .orange) {
+                        showingUpdateMileage = true
+                    }
                 }
                 .padding(.top, 4)
             } label: {
@@ -311,11 +324,18 @@ struct CarDetailView: View {
                     }
 
                     HStack(spacing: 12) {
-                        if let mileage = car.mileage {
-                            Text("\(mileage.formatted()) mi")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                        Button {
+                            showingUpdateMileage = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "gauge.with.needle")
+                                    .font(.caption)
+                                Text(car.mileage.map { "\($0.formatted()) mi" } ?? "Add Mileage")
+                                    .font(.subheadline)
+                            }
+                            .foregroundStyle(car.mileage != nil ? Color.secondary : Color.blue)
                         }
+                        .buttonStyle(.plain)
                         if let level = car.batteryLevel {
                             batteryView(level: level, chargingState: car.chargingState)
                         }
