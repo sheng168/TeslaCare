@@ -33,6 +33,7 @@ struct CarDetailView: View {
     @AppStorage("detail.tireGridExpanded") private var tireGridExpanded = true
     @AppStorage("detail.actionsExpanded") private var actionsExpanded = true
     @AppStorage("detail.chartsExpanded") private var chartsExpanded = true
+    @AppStorage("detail.mileageChartExpanded") private var mileageChartExpanded = true
     @AppStorage("detail.rotationExpanded") private var rotationExpanded = true
     @AppStorage("detail.replacementExpanded") private var replacementExpanded = true
     @AppStorage("detail.airFilterExpanded") private var airFilterExpanded = true
@@ -52,6 +53,7 @@ struct CarDetailView: View {
                 actionButtonsSection
 
                 historyChartsSection
+                mileageChartSection
                 pressureSection
                 nearbyChargersSection
 
@@ -161,6 +163,24 @@ struct CarDetailView: View {
     }
 
     // MARK: - Sections
+
+    @ViewBuilder
+    private var mileageChartSection: some View {
+        let readings = car.mileageReadings ?? []
+        if !readings.isEmpty {
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $mileageChartExpanded) {
+                    MileageHistoryChartView(car: car, chartHeight: 160)
+                        .padding(.top, 4)
+                } label: {
+                    Text("Mileage History")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
 
     @ViewBuilder
     private var pressureSection: some View {

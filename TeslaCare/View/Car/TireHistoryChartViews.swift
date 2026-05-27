@@ -183,6 +183,91 @@ struct TreadDepthHistoryChartView: View {
     }
 }
 
+struct MileageHistoryChartView: View {
+    let car: Car
+    var chartHeight: CGFloat = 200
+
+    private struct DataPoint: Identifiable {
+        let id = UUID()
+        let date: Date
+        let mileage: Int
+    }
+
+    private var dataPoints: [DataPoint] {
+        (car.mileageReadings ?? [])
+            .sorted { $0.date < $1.date }
+            .map { DataPoint(date: $0.date, mileage: $0.mileage) }
+    }
+
+    private var yDomain: ClosedRange<Double> {
+        let values = dataPoints.map { Double($0.mileage) }
+        let lo = max(0, (values.min() ?? 0) - 500)
+        let hi = (values.max() ?? 1000) + 500
+        return lo...hi
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Mileage History")
+                .font(.headline)
+
+            if dataPoints.count < 2 {
+                Text("Log more mileage readings to build history")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 80)
+                    .multilineTextAlignment(.center)
+            } else {
+                Chart(dataPoints) { point in
+                    AreaMark(
+                        x: .value("Date", point.date),
+                        y: .value("Miles", point.mileage)
+                    )
+                    .foregroundStyle(.blue.opacity(0.15))
+                    .interpolationMethod(.catmullRom)
+
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("Miles", point.mileage)
+                    )
+                    .foregroundStyle(.blue)
+                    .interpolationMethod(.catmullRom)
+
+                    PointMark(
+                        x: .value("Date", point.date),
+                        y: .value("Miles", point.mileage)
+                    )
+                    .foregroundStyle(.blue)
+                    .symbolSize(30)
+                }
+                .chartYScale(domain: yDomain)
+                .chartYAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let miles = value.as(Double.self) {
+                                Text(Int(miles).formatted(.number.notation(.compactName)))
+                                    .font(.caption2)
+                            }
+                        }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    }
+                }
+                .frame(height: chartHeight)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.08), radius: 4)
+    }
+}
+
 #Preview("TPMS History Chart — With Data") {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Car.self, TPMSReading.self, configurations: config)
