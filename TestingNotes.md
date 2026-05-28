@@ -1,7 +1,7 @@
-# TeslaCare – Testing Notes
+# TezCare – Testing Notes
 
 ## Overview
-TeslaCare is an iOS 26 app for tracking Tesla vehicle maintenance, with a focus on tire health, mileage, and community car listings.
+TezCare is an iOS 26 app for tracking Tesla vehicle maintenance, with a focus on tire health, mileage, and community car listings.
 
 ---
 

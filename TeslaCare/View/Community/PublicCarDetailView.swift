@@ -211,7 +211,7 @@ struct PublicCarDetailView: View {
                 .padding(.bottom, 12)
 
             listingRow(icon: "checkmark.seal.fill", iconColor: .green,
-                       label: "Source", value: "TeslaCare user")
+                       label: "Source", value: "TezCare user")
 
             if let vin = car.vin {
                 Divider().padding(.vertical, 10)

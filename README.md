@@ -1,7 +1,7 @@
-# TeslaCare - Tire Tread Tracking App
+# TezCare - Tire Tread Tracking App
 
 ## Overview
-TeslaCare is a tire tread depth tracking application that helps car owners monitor their tire health over time. The app uses SwiftUI and SwiftData for a modern, persistent data experience.
+TezCare is a tire tread depth tracking application that helps car owners monitor their tire health over time. The app uses SwiftUI and SwiftData for a modern, persistent data experience.
 
 ## Features
 

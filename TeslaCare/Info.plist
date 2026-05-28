@@ -7,11 +7,11 @@
 		<string>remote-notification</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TeslaCare uses your location to show how far away your car is.</string>
+	<string>TezCare uses your location to show how far away your car is.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>TeslaCare uses the camera to photograph tire tread for your records.</string>
+	<string>TezCare uses the camera to photograph tire tread for your records.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>TeslaCare saves tire photos to your camera roll.</string>
+	<string>TezCare saves tire photos to your camera roll.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>CFBundleURLTypes</key>

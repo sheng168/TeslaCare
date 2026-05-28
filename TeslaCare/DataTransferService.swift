@@ -23,7 +23,7 @@ enum DataTransferError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyData:     return "The file contains no records to import."
-        case .invalidFormat: return "The file isn't a valid TeslaCare export."
+        case .invalidFormat: return "The file isn't a valid TezCare export."
         case .notUTF8:       return "The file could not be read as text."
         }
     }
@@ -618,7 +618,7 @@ enum DataTransferService {
     private static func writeTempFile(data: Data, ext: String) throws -> URL {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        let name = "TeslaCare-Export-\(formatter.string(from: Date())).\(ext)"
+        let name = "TezCare-Export-\(formatter.string(from: Date())).\(ext)"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
         try data.write(to: url, options: .atomic)
         return url

@@ -2,7 +2,7 @@
 
 ## Overview
 
-TeslaCare now includes Tesla account integration using the official Tesla Fleet API. This allows you to:
+TezCare now includes Tesla account integration using the official Tesla Fleet API. This allows you to:
 
 - Authenticate with your Tesla account securely
 - View your Tesla vehicles
