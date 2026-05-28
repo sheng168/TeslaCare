@@ -50,11 +50,10 @@ struct CarRowView: View {
                 .font(.system(.body, weight: .semibold))
                 .lineLimit(1)
             HStack(spacing: 6) {
+                tireDepthsRow
                 if let level = car.batteryLevel {
+                    Spacer()
                     batteryLabel(level)
-                }
-                if let health = car.tireHealthPercentage {
-                    tireLabel(health)
                 }
             }
         }
@@ -71,14 +70,28 @@ struct CarRowView: View {
         .foregroundStyle(level < 20 ? .red : level < 40 ? .yellow : .green)
     }
 
-    private func tireLabel(_ health: Double) -> some View {
-        HStack(spacing: 2) {
-            Image(systemName: "circle.dotted")
-                .font(.caption2)
-            Text(String(format: "%.0f%%", health))
-                .font(.caption2)
+    private var tireDepthsRow: some View {
+        let depths = TirePosition.allCases.compactMap { pos -> (String, Color)? in
+            guard let depth = car.latestMeasurement(for: pos)?.treadDepth else { return nil }
+            let color: Color = depth <= 2 ? .red : depth <= 4 ? .yellow : .green
+            return (String(format: "%.0f", depth), color)
         }
-        .foregroundStyle(health < 30 ? .red : health < 60 ? .yellow : .primary)
+        return Group {
+            if !depths.isEmpty {
+                HStack(spacing: 3) {
+                    ForEach(depths.indices, id: \.self) { i in
+                        Text(depths[i].0)
+                            .font(.caption2)
+                            .foregroundStyle(depths[i].1)
+                        if i < depths.count - 1 {
+//                            Text("")
+//                                .font(.caption2)
+//                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func batteryIcon(for level: Int) -> String {
@@ -178,7 +191,45 @@ struct TireDepthCell: View {
 
 // MARK: - Preview
 
-#Preview {
+@MainActor
+private func makePreviewContainer() -> ModelContainer {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Car.self, Tire.self, TireMeasurement.self, configurations: config)
+    let ctx = container.mainContext
+
+    let car1 = Car(name: "My Tesla", make: "Tesla", model: "Model 3", year: 2023)
+    car1.batteryLevel = 82; car1.chargingState = "Charging"; ctx.insert(car1)
+    for pos in TirePosition.allCases {
+        let tire = Tire(brand: "Michelin", modelName: "Pilot Sport 4S", size: "235/45R18", currentPosition: pos.rawValue)
+        tire.car = car1; ctx.insert(tire)
+        ctx.insert(TireMeasurement(date: Date(), treadDepth: 7.5, positionRaw: pos.rawValue, car: car1, tire: tire))
+    }
+
+    let car2 = Car(name: "Family Car", make: "Tesla", model: "Model Y", year: 2022)
+    car2.batteryLevel = 41; ctx.insert(car2)
+    for (pos, depth) in zip(TirePosition.allCases, [3.5, 3.2, 2.8, 3.0] as [Double]) {
+        let tire = Tire(brand: "Goodyear", modelName: "Eagle F1", size: "255/45R19", currentPosition: pos.rawValue)
+        tire.car = car2; ctx.insert(tire)
+        ctx.insert(TireMeasurement(date: Date(), treadDepth: depth, positionRaw: pos.rawValue, car: car2, tire: tire))
+    }
+
+    let car3 = Car(name: "", make: "Tesla", model: "Cybertruck", year: 2024)
+    car3.batteryLevel = 15; ctx.insert(car3)
+    for pos in TirePosition.allCases {
+        let tire = Tire(brand: "Goodyear", modelName: "Wrangler", size: "285/65R20", currentPosition: pos.rawValue)
+        tire.car = car3; ctx.insert(tire)
+        ctx.insert(TireMeasurement(date: Date(), treadDepth: 1.5, positionRaw: pos.rawValue, car: car3, tire: tire))
+    }
+
+    return container
+}
+
+#Preview("Empty") {
     CarListView()
         .modelContainer(for: [Car.self, Tire.self, TireMeasurement.self], inMemory: true)
+}
+
+#Preview("With Cars") {
+    CarListView()
+        .modelContainer(makePreviewContainer())
 }
