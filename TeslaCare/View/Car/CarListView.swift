@@ -24,6 +24,7 @@ struct CarListView: View {
     @EnvironmentObject private var authManager: TeslaAuthManager
     @Query private var cars: [Car]
     @State private var showingAddCar = false
+    @State private var showingTeslaAuth = false
     @State private var sortOrder: CarSortOrder = .lastModified
     @State private var refreshErrorMessage: String?
 
@@ -137,9 +138,12 @@ struct CarListView: View {
                         
                         Button {
                             logger.info("Tesla Account")
-//                            showingTeslaLogin = true
+                            showingTeslaAuth = true
                         } label: {
-                            Label("Connect Tesla Account", systemImage: "bolt.car.fill")
+                            Label(
+                                authManager.isAuthenticated ? "Manage Tesla Account" : "Connect Tesla Account",
+                                systemImage: authManager.isAuthenticated ? "checkmark.circle.fill" : "bolt.car.fill"
+                            )
                         }
                     } label: {
                         Label("Add Car", systemImage: "plus")
@@ -148,6 +152,9 @@ struct CarListView: View {
             }
             .sheet(isPresented: $showingAddCar) {
                 AddCarView()
+            }
+            .sheet(isPresented: $showingTeslaAuth) {
+                TeslaAuthView()
             }
             .overlay {
                 if cars.isEmpty {
