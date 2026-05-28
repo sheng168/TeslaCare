@@ -198,11 +198,11 @@ enum DataTransferService {
     // MARK: JSON export
 
     @MainActor
-    static func exportJSON(context: ModelContext) throws -> URL {
+    static func exportJSON(context: ModelContext, excludePhotos: Bool = false) throws -> URL {
         let cars = try context.fetch(FetchDescriptor<Car>())
         let document = ExportDocument(
             appVersion: appVersion,
-            cars: cars.map(carDTO(from:))
+            cars: cars.map { carDTO(from: $0, excludePhotos: excludePhotos) }
         )
 
         let encoder = JSONEncoder()
@@ -213,7 +213,7 @@ enum DataTransferService {
         return try writeTempFile(data: data, ext: "json")
     }
 
-    private static func carDTO(from car: Car) -> CarDTO {
+    private static func carDTO(from car: Car, excludePhotos: Bool = false) -> CarDTO {
         // Each tire gets a localID so measurements/repairs can reference it on import.
         var tireIDs: [PersistentIdentifier: String] = [:]
         let tireDTOs: [TireDTO] = (car.tires ?? []).map { tire in
@@ -246,7 +246,7 @@ enum DataTransferService {
                 centerTreadDepth: m.centerTreadDepth,
                 outerTreadDepth: m.outerTreadDepth,
                 tireLocalID: m.tire.flatMap { tireIDs[$0.persistentModelID] },
-                photos: photoDTOs(m.photos?.map { ($0.data, $0.sortIndex, $0.createdAt) })
+                photos: excludePhotos ? [] : photoDTOs(m.photos?.map { ($0.data, $0.sortIndex, $0.createdAt) })
             )
         }
 
@@ -260,7 +260,7 @@ enum DataTransferService {
                 mileage: r.mileage,
                 notes: r.notes,
                 tireLocalID: r.tire.flatMap { tireIDs[$0.persistentModelID] },
-                photos: photoDTOs(r.photos?.map { ($0.data, $0.sortIndex, $0.createdAt) })
+                photos: excludePhotos ? [] : photoDTOs(r.photos?.map { ($0.data, $0.sortIndex, $0.createdAt) })
             )
         }
 

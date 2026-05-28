@@ -16,6 +16,7 @@ struct ExportDataView: View {
     @State private var showingShareSheet = false
     @State private var exportURL: URL?
     @State private var errorMessage: String?
+    @State private var excludePhotos = false
 
     var body: some View {
         List {
@@ -25,13 +26,24 @@ struct ExportDataView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Options") {
+                Toggle("Exclude Photos", isOn: $excludePhotos)
+                if excludePhotos {
+                    Text("Photo data will be omitted, producing a smaller file.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Export Format") {
                 Button {
                     export(.json)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Label("Export as JSON", systemImage: "doc.text")
-                        Text("Full backup — cars, tires, measurements, photos and events.")
+                        Text(excludePhotos
+                             ? "Full backup without photos — cars, tires, measurements and events."
+                             : "Full backup — cars, tires, measurements, photos and events.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -70,8 +82,8 @@ struct ExportDataView: View {
             let url: URL
             switch format {
             case .json:
-                logger.info("Exporting as JSON")
-                url = try DataTransferService.exportJSON(context: modelContext)
+                logger.info("Exporting as JSON (excludePhotos: \(excludePhotos))")
+                url = try DataTransferService.exportJSON(context: modelContext, excludePhotos: excludePhotos)
             case .csv:
                 logger.info("Exporting as CSV")
                 url = try DataTransferService.exportCSV(context: modelContext)
