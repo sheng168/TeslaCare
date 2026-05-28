@@ -155,9 +155,16 @@ struct TireDepthCell: View {
     let car: Car
     let position: TirePosition
 
+    @Environment(\.modelContext) private var modelContext
+
     private var measurement: TireMeasurement? {
-        car.latestMeasurement(for: position)
+        (car.measurements ?? [])
+            .filter { $0.position == position }
+            .sorted { $0.date > $1.date }
+            .first
     }
+
+    private var currentDepth: Double { measurement?.treadDepth ?? 4.0 }
 
     private var statusColor: Color {
         guard let m = measurement else { return .secondary }
@@ -165,27 +172,53 @@ struct TireDepthCell: View {
     }
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 4) {
             Text(position.abbreviation)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            if let m = measurement {
-                Text(String(format: "%.1f", m.treadDepth))
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(statusColor)
-                Text("/32\"")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("—")
-                    .font(.title3)
-                    .foregroundStyle(.tertiary)
+
+            HStack(spacing: 6) {
+                Button { log(currentDepth - 0.5) } label: {
+                    Image(systemName: "minus")
+                        .font(.caption2.weight(.semibold))
+                        .frame(width: 20, height: 20)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(currentDepth <= 0.5)
+
+                VStack(spacing: 0) {
+                    Text(String(format: "%.1f", currentDepth))
+                        .font(.system(.body, design: .rounded, weight: .bold))
+                        .foregroundStyle(statusColor)
+                    Text("/32\"")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                }
+
+                Button { log(currentDepth + 0.5) } label: {
+                    Image(systemName: "plus")
+                        .font(.caption2.weight(.semibold))
+                        .frame(width: 20, height: 20)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(currentDepth >= 12)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(statusColor.opacity(0.12))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func log(_ depth: Double) {
+        let tire = (car.tires ?? []).first { $0.position == position }
+        let m = TireMeasurement(date: Date(), treadDepth: depth,
+                                positionRaw: position.rawValue, car: car, tire: tire)
+        modelContext.insert(m)
     }
 }
 
