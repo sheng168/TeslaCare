@@ -128,7 +128,20 @@ struct CarListView: View {
                     }
                 }
                 ToolbarItem {
-                    Button(action: { showingAddCar = true }) {
+                    Menu {
+                        Button {
+                            showingAddCar = true
+                        } label: {
+                            Label("Add Car Manually", systemImage: "plus")
+                        }
+                        
+                        Button {
+                            logger.info("Tesla Account")
+//                            showingTeslaLogin = true
+                        } label: {
+                            Label("Connect Tesla Account", systemImage: "bolt.car.fill")
+                        }
+                    } label: {
                         Label("Add Car", systemImage: "plus")
                     }
                 }
