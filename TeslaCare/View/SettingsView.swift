@@ -159,6 +159,8 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    Link("Refer a Friend", destination: URL(string: "https://ts.la/jin50175")!)
+
                     Link("Privacy Policy", destination: URL(string: "https://example.com/privacy")!)
                     Link("Terms of Service", destination: URL(string: "https://example.com/terms")!)
 
