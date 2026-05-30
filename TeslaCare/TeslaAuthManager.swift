@@ -205,7 +205,7 @@ class TeslaAuthManager: ObservableObject {
             for vehicle in vehicles {
                 guard let vin = vehicle.vin else { continue }
                 group.addTask {
-                    async let extended = try? api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .driveState, .chargeState])
+                    async let extended = try? api.getAllData(vehicle, endpoints: [.vehicleConfig, .vehicleState, .climateState, .locationData, .chargeState])
                     async let nearby = try? api.getNearbyChargingSites(vehicle)
                     return (vin, await extended, await nearby)
                 }
