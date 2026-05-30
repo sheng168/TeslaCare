@@ -1,5 +1,9 @@
 # TezCare - Tire Tread Tracking App
 
+## Beta
+
+[Join the TestFlight beta](https://testflight.apple.com/join/tR2WCB5q)
+
 ## Overview
 TezCare is a tire tread depth tracking application that helps car owners monitor their tire health over time. The app uses SwiftUI and SwiftData for a modern, persistent data experience.
 
