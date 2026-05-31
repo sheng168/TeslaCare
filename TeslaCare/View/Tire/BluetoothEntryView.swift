@@ -56,7 +56,7 @@ struct BluetoothEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    @State private var pointCount = 3
+    @AppStorage("treadPointCount") private var pointCount = 3
     // values[tireIndex][pointIndex], up to 5 points
     @State private var values: [[String]] = Array(repeating: Array(repeating: "", count: 5), count: 4)
     @FocusState private var focusedField: FieldID?
