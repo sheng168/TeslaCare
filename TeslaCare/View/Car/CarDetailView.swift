@@ -21,6 +21,7 @@ struct CarDetailView: View {
     @State private var showingLogAirFilter = false
     @State private var showingUpdateMileage = false
     @State private var showingEditCar = false
+    @State private var showingQuickEntry = false
     @State private var selectedPosition: TirePosition?
     @State private var showingPublishSheet = false
     @State private var showingUnpublishConfirm = false
@@ -92,6 +93,12 @@ struct CarDetailView: View {
                 }
             }
 
+            ToolbarItem(placement: .secondaryAction) {
+                Button(action: { showingQuickEntry = true }) {
+                    Label("Quick Entry", systemImage: "keyboard")
+                }
+            }
+
             ToolbarItem(placement: .primaryAction) {
                 if car.cloudKitRecordName != nil {
                     Button(action: { showingUnpublishConfirm = true }) {
@@ -149,6 +156,9 @@ struct CarDetailView: View {
         }
         .sheet(isPresented: $showingUpdateMileage) {
             LogMileageView(car: car)
+        }
+        .sheet(isPresented: $showingQuickEntry) {
+            BluetoothEntryView(car: car)
         }
         .onChange(of: selectedPosition) { _, newValue in
             if newValue != nil {
