@@ -6,21 +6,25 @@
 import SwiftUI
 import SwiftData
 
-// Rapid keyboard/Bluetooth-gauge entry: cycles all 4 tires,
-// auto-advancing focus on Return after each reading.
+// Rapid keyboard / Bluetooth-gauge entry: all 4 tires visible at once.
+// Tab advances through every field in reading order; the system handles
+// within-row and cross-row navigation automatically.
 struct BluetoothEntryView: View {
     let car: Car
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var pointCount = 3
-    @State private var currentTire = 0
     // values[tireIndex][pointIndex], up to 5 points
     @State private var values: [[String]] = Array(repeating: Array(repeating: "", count: 5), count: 4)
-    @State private var showSummary = false
-    @FocusState private var focusedPoint: Int?
+    @FocusState private var focusedField: FieldID?
 
     private let positions = TirePosition.allCases
+
+    struct FieldID: Hashable {
+        let tire: Int
+        let point: Int
+    }
 
     var body: some View {
         NavigationStack {
@@ -30,12 +34,18 @@ struct BluetoothEntryView: View {
                     .padding(.vertical, 10)
                     .background(.bar)
 
-                if showSummary {
-                    summaryView
-                } else {
-                    entryView
-                        .id(currentTire)
+                ScrollView {
+                    VStack(spacing: 8) {
+                        columnHeaders
+                        ForEach(0..<4, id: \.self) { tire in
+                            tireRow(tire)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
                 }
+
+                saveBar
             }
             .navigationTitle("Quick Entry")
             .navigationBarTitleDisplayMode(.inline)
@@ -61,223 +71,134 @@ struct BluetoothEntryView: View {
                     .monospacedDigit()
                     .frame(width: 18)
             }
-            .onChange(of: pointCount) { _, _ in resetSession() }
-
-            Spacer()
-
-            if !showSummary {
-                HStack(spacing: 4) {
-                    ForEach(0..<4, id: \.self) { i in
-                        Circle()
-                            .fill(i == currentTire ? Color.blue : Color(.tertiarySystemFill))
-                            .frame(width: 7, height: 7)
-                    }
-                }
+            .onChange(of: pointCount) { _, _ in
+                values = Array(repeating: Array(repeating: "", count: 5), count: 4)
             }
         }
     }
 
-    // MARK: - Entry View (one tire at a time)
+    // MARK: - Column Headers
 
-    private var entryView: some View {
-        VStack(spacing: 28) {
-            Spacer(minLength: 0)
+    private var columnHeaders: some View {
+        HStack(spacing: 6) {
+            Text("")
+                .frame(width: 36)
 
-            carSchematic
-
-            VStack(spacing: 6) {
-                Text(positions[currentTire].rawValue)
-                    .font(.system(.title, weight: .bold))
-
-                if let prev = car.latestMeasurement(for: positions[currentTire]) {
-                    Text("Previous: \(String(format: "%.1f/32\"", prev.treadDepth))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+            ForEach(0..<pointCount, id: \.self) { point in
+                Text(pointLabel(point, total: pointCount))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
             }
 
-            // Input fields
-            HStack(spacing: 10) {
-                ForEach(0..<pointCount, id: \.self) { point in
-                    VStack(spacing: 6) {
-                        TextField("—", text: $values[currentTire][point])
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.center)
-                            .font(.system(.title2, design: .rounded, weight: .semibold))
-                            .foregroundStyle(fieldColor(values[currentTire][point]))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(focusedPoint == point
-                                          ? Color.blue.opacity(0.1)
-                                          : Color(.secondarySystemBackground))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(focusedPoint == point ? Color.blue : Color.clear, lineWidth: 2)
-                            )
-                            .focused($focusedPoint, equals: point)
-                            .onSubmit { advance(from: point) }
-
-                        Text(pointLabel(point, total: pointCount))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding(.horizontal, 24)
-
-            // Back / Skip navigation
-            HStack {
-                Button {
-                    withAnimation(.spring(duration: 0.3)) { currentTire -= 1 }
-                } label: {
-                    Label("Back", systemImage: "chevron.left")
-                        .font(.subheadline)
-                }
-                .disabled(currentTire == 0)
-                .foregroundStyle(currentTire == 0 ? Color.secondary : Color.blue)
-
-                Spacer()
-
-                Button {
-                    advance(from: pointCount - 1)
-                } label: {
-                    Label(currentTire < 3 ? "Skip" : "Done",
-                          systemImage: currentTire < 3 ? "chevron.right" : "checkmark")
-                        .labelStyle(.titleAndIcon)
-                        .font(.subheadline)
-                }
-                .foregroundStyle(.blue)
-            }
-            .padding(.horizontal, 32)
-
-            Spacer(minLength: 0)
-        }
-        .onAppear { focusedPoint = 0 }
-    }
-
-    // MARK: - Car Schematic (mini 2×2 grid)
-
-    private var carSchematic: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                schematicCell(.frontLeft)
-                schematicCell(.frontRight)
-            }
-            HStack(spacing: 4) {
-                schematicCell(.rearLeft)
-                schematicCell(.rearRight)
-            }
-        }
-    }
-
-    private func schematicCell(_ pos: TirePosition) -> some View {
-        let isCurrent = positions[currentTire] == pos
-        let hasValues = values[positions.firstIndex(of: pos)!].prefix(pointCount).contains { !$0.isEmpty }
-        return Text(pos.abbreviation)
-            .font(.caption2.weight(isCurrent ? .bold : .regular))
-            .foregroundStyle(isCurrent ? .white : (hasValues ? .green : .secondary))
-            .frame(width: 36, height: 22)
-            .background(
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(isCurrent ? Color.blue : (hasValues ? Color.green.opacity(0.15) : Color(.tertiarySystemFill)))
-            )
-    }
-
-    // MARK: - Summary View
-
-    private var summaryView: some View {
-        List {
-            Section {
-                ForEach(positions.indices, id: \.self) { i in
-                    let readings = pointReadings(tire: i)
-                    let avg = readings.isEmpty ? nil : readings.reduce(0, +) / Double(readings.count)
-
-                    HStack(spacing: 12) {
-                        Text(positions[i].abbreviation)
-                            .font(.subheadline.weight(.semibold))
-                            .frame(width: 28)
-
-                        Text(positions[i].rawValue)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        Spacer()
-
-                        if readings.isEmpty {
-                            Text("Skipped")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        } else {
-                            HStack(spacing: 6) {
-                                if readings.count > 1 {
-                                    Text(readings.map { String(format: "%.1f", $0) }.joined(separator: " · "))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text("→")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
-                                if let avg {
-                                    Text(String(format: "%.1f/32\"", avg))
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(depthColor(avg))
-                                }
-                            }
-                        }
-                    }
-                }
-            } header: {
-                Text("Review")
-            }
-
-            Section {
-                Button(action: saveMeasurements) {
-                    Label("Save All Measurements", systemImage: "checkmark.circle.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                }
-                .tint(.blue)
-
-                Button("Go Back & Edit") {
-                    withAnimation { showSummary = false; currentTire = 3 }
-                }
+            Text("Avg")
+                .font(.caption2)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-            }
+                .frame(width: 44)
         }
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Tire Row
+
+    private func tireRow(_ tire: Int) -> some View {
+        let isActive = focusedField?.tire == tire
+        let avg = rowAverage(tire)
+
+        return HStack(spacing: 6) {
+            Text(positions[tire].abbreviation)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isActive ? .blue : .primary)
+                .frame(width: 36)
+
+            ForEach(0..<pointCount, id: \.self) { point in
+                let id = FieldID(tire: tire, point: point)
+                TextField("—", text: $values[tire][point])
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(depthColor(values[tire][point]))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(focusedField == id
+                                  ? Color.blue.opacity(0.1)
+                                  : Color(.secondarySystemBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(focusedField == id ? Color.blue : Color.clear, lineWidth: 1.5)
+                    )
+                    .focused($focusedField, equals: id)
+                    .onSubmit { advanceFrom(tire: tire, point: point) }
+            }
+
+            // Running average for this tire
+            Group {
+                if let avg {
+                    Text(String(format: "%.1f", avg))
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(avgColor(avg))
+                } else {
+                    Text("—")
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .font(.subheadline)
+            .frame(width: 44)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isActive ? Color.blue.opacity(0.05) : Color.clear)
+        )
+        .animation(.easeInOut(duration: 0.15), value: isActive)
+    }
+
+    // MARK: - Save Bar
+
+    private var saveBar: some View {
+        Button(action: saveMeasurements) {
+            Label("Save Measurements", systemImage: "checkmark.circle.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(.blue, in: RoundedRectangle(cornerRadius: 14))
+                .foregroundStyle(.white)
+        }
+        .padding()
+        .background(.bar)
+        .disabled(!hasAnyValues)
     }
 
     // MARK: - Logic
 
-    private func advance(from point: Int) {
-        let next = point + 1
-        if next < pointCount {
-            focusedPoint = next
-        } else if currentTire < 3 {
-            withAnimation(.spring(duration: 0.3)) { currentTire += 1 }
-        } else {
-            focusedPoint = nil
-            withAnimation { showSummary = true }
+    private func advanceFrom(tire: Int, point: Int) {
+        let nextPoint = point + 1
+        if nextPoint < pointCount {
+            focusedField = FieldID(tire: tire, point: nextPoint)
+        } else if tire < 3 {
+            focusedField = FieldID(tire: tire + 1, point: 0)
         }
+        // last field of last tire: let user tap Save
     }
 
-    private func resetSession() {
-        values = Array(repeating: Array(repeating: "", count: 5), count: 4)
-        currentTire = 0
-        showSummary = false
+    private func rowAverage(_ tire: Int) -> Double? {
+        let readings = values[tire].prefix(pointCount).compactMap { Double($0) }
+        guard !readings.isEmpty else { return nil }
+        return readings.reduce(0, +) / Double(readings.count)
     }
 
-    private func pointReadings(tire: Int) -> [Double] {
-        values[tire].prefix(pointCount).compactMap { Double($0) }
+    private var hasAnyValues: Bool {
+        (0..<4).contains { rowAverage($0) != nil }
     }
 
     private func saveMeasurements() {
         let date = Date()
         for (i, position) in positions.enumerated() {
-            let readings = pointReadings(tire: i)
+            let readings = values[i].prefix(pointCount).compactMap { Double($0) }
             guard !readings.isEmpty else { continue }
             let avg = readings.reduce(0, +) / Double(readings.count)
 
@@ -290,12 +211,11 @@ struct BluetoothEntryView: View {
                 modelContext.insert(tire)
             }
 
-            // Map to inner/center/outer for 3-point measurements
             let inner:  Double? = pointCount >= 2 ? readings.first : nil
             let center: Double? = pointCount == 3 ? readings[1] : (pointCount == 5 ? readings[2] : nil)
             let outer:  Double? = pointCount >= 2 ? readings.last : nil
 
-            let notes: String = pointCount > 1
+            let notes = pointCount > 1
                 ? (0..<readings.count).map { "\(pointLabel($0, total: pointCount)): \(String(format: "%.1f", readings[$0]))" }.joined(separator: ", ")
                 : ""
 
@@ -328,12 +248,12 @@ struct BluetoothEntryView: View {
         }
     }
 
-    private func fieldColor(_ text: String) -> Color {
+    private func depthColor(_ text: String) -> Color {
         guard let d = Double(text) else { return .primary }
-        return depthColor(d)
+        return avgColor(d)
     }
 
-    private func depthColor(_ depth: Double) -> Color {
+    private func avgColor(_ depth: Double) -> Color {
         if depth <= 2.0 { return .red }
         if depth <= 4.0 { return .orange }
         return .green
