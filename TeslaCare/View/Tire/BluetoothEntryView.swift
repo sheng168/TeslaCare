@@ -6,6 +6,48 @@
 import SwiftUI
 import SwiftData
 
+// Input unit for Bluetooth/gauge entry — stored persistently via @AppStorage.
+// All values are converted to 32nds of an inch before saving (app-wide convention).
+private enum TreadUnit: String, CaseIterable {
+    case thirtySeconds = "32\""
+    case inches = "in"
+    case mm = "mm"
+
+    // Convert a user-entered value to 32nds of an inch for storage.
+    func toThirtySeconds(_ value: Double) -> Double {
+        switch self {
+        case .thirtySeconds: return value
+        case .inches:        return value * 32
+        case .mm:            return value * (32 / 25.4)
+        }
+    }
+
+    // Thresholds mirror the app convention: replace at 2/32", warn at 4/32".
+    var redThreshold: Double {
+        switch self {
+        case .thirtySeconds: return 2.0
+        case .inches:        return 2.0 / 32
+        case .mm:            return 2.0 * 25.4 / 32
+        }
+    }
+
+    var orangeThreshold: Double {
+        switch self {
+        case .thirtySeconds: return 4.0
+        case .inches:        return 4.0 / 32
+        case .mm:            return 4.0 * 25.4 / 32
+        }
+    }
+
+    func format(_ value: Double) -> String {
+        switch self {
+        case .thirtySeconds: return String(format: "%.1f", value)
+        case .inches:        return String(format: "%.3f", value)
+        case .mm:            return String(format: "%.2f", value)
+        }
+    }
+}
+
 // Rapid keyboard / Bluetooth-gauge entry: all 4 tires visible at once.
 // Tab advances through every field in reading order; the system handles
 // within-row and cross-row navigation automatically.
@@ -18,6 +60,9 @@ struct BluetoothEntryView: View {
     // values[tireIndex][pointIndex], up to 5 points
     @State private var values: [[String]] = Array(repeating: Array(repeating: "", count: 5), count: 4)
     @FocusState private var focusedField: FieldID?
+
+    @AppStorage("treadInputUnit") private var unitRaw: String = TreadUnit.thirtySeconds.rawValue
+    private var unit: TreadUnit { TreadUnit(rawValue: unitRaw) ?? .thirtySeconds }
 
     private let positions = TirePosition.allCases
 
@@ -74,6 +119,16 @@ struct BluetoothEntryView: View {
             .onChange(of: pointCount) { _, _ in
                 values = Array(repeating: Array(repeating: "", count: 5), count: 4)
             }
+
+            Spacer()
+
+            Picker("Unit", selection: $unitRaw) {
+                ForEach(TreadUnit.allCases, id: \.rawValue) { u in
+                    Text(u.rawValue).tag(u.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 140)
         }
     }
 
@@ -91,10 +146,13 @@ struct BluetoothEntryView: View {
                     .frame(maxWidth: .infinity)
             }
 
-            Text("Avg")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .frame(width: 44)
+            VStack(spacing: 1) {
+                Text("Avg")
+                Text(unit.rawValue)
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .frame(width: 44)
         }
         .padding(.horizontal, 4)
     }
@@ -134,12 +192,11 @@ struct BluetoothEntryView: View {
                     .onSubmit { advanceFrom(tire: tire, point: point) }
             }
 
-            // Running average for this tire
             Group {
                 if let avg {
-                    Text(String(format: "%.1f", avg))
+                    Text(unit.format(avg))
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(avgColor(avg))
+                        .foregroundStyle(thresholdColor(avg))
                 } else {
                     Text("—")
                         .foregroundStyle(.tertiary)
@@ -198,8 +255,10 @@ struct BluetoothEntryView: View {
     private func saveMeasurements() {
         let date = Date()
         for (i, position) in positions.enumerated() {
-            let readings = values[i].prefix(pointCount).compactMap { Double($0) }
-            guard !readings.isEmpty else { continue }
+            let rawReadings = values[i].prefix(pointCount).compactMap { Double($0) }
+            guard !rawReadings.isEmpty else { continue }
+            // Convert from the selected input unit to 32nds of an inch for storage
+            let readings = rawReadings.map { unit.toThirtySeconds($0) }
             let avg = readings.reduce(0, +) / Double(readings.count)
 
             let tire: Tire
@@ -216,7 +275,9 @@ struct BluetoothEntryView: View {
             let outer:  Double? = pointCount >= 2 ? readings.last : nil
 
             let notes = pointCount > 1
-                ? (0..<readings.count).map { "\(pointLabel($0, total: pointCount)): \(String(format: "%.1f", readings[$0]))" }.joined(separator: ", ")
+                ? (0..<rawReadings.count).map {
+                    "\(pointLabel($0, total: pointCount)): \(unit.format(rawReadings[$0])) \(unit.rawValue)"
+                }.joined(separator: ", ")
                 : ""
 
             let m = TireMeasurement(
@@ -250,12 +311,12 @@ struct BluetoothEntryView: View {
 
     private func depthColor(_ text: String) -> Color {
         guard let d = Double(text) else { return .primary }
-        return avgColor(d)
+        return thresholdColor(d)
     }
 
-    private func avgColor(_ depth: Double) -> Color {
-        if depth <= 2.0 { return .red }
-        if depth <= 4.0 { return .orange }
+    private func thresholdColor(_ value: Double) -> Color {
+        if value <= unit.redThreshold { return .red }
+        if value <= unit.orangeThreshold { return .orange }
         return .green
     }
 }
