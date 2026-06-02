@@ -59,7 +59,7 @@ class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
     }
 
     private func setupAPI() {
-        logger.info("setupAPI: initializing TeslaSwift fleet API, region=\(selectedRegion.rawValue)")
+        logger.info("setupAPI: initializing TeslaSwift fleet API, region=\(self.selectedRegion.rawValue)")
         api = TeslaSwift(teslaAPI: .fleetAPI(
             region: selectedRegion,
             clientID: clientID,
