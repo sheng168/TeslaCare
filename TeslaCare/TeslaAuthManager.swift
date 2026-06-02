@@ -23,15 +23,28 @@ class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
     @Published var vehicleData: [String: VehicleExtended] = [:]
     @Published var vehicleChargingSites: [String: NearbyChargingSites] = [:]
 
+    @Published var selectedRegion: TeslaAPI.Region
+
     private var api: TeslaSwift?
     private let clientID = "b7b3546b95f7-453c-ac19-5efbd8d3bd35"
     private let clientSecret = "ta-secret.6zpdiNudRJvDZ-P_"
     private let redirectURI = "teslacare://fob.jsy.us/login"
+    private static let regionKey = "teslaFleetRegion"
 
     private var modelContext: ModelContext?
 
     init() {
+        let raw = UserDefaults.standard.string(forKey: TeslaAuthManager.regionKey) ?? ""
+        self.selectedRegion = TeslaAPI.Region(rawValue: raw) ?? .northAmericaAsiaPacific
         setupAPI()
+    }
+
+    func selectRegion(_ region: TeslaAPI.Region) {
+        guard region != selectedRegion else { return }
+        selectedRegion = region
+        UserDefaults.standard.set(region.rawValue, forKey: Self.regionKey)
+        setupAPI()
+        logger.info("selectRegion: switched to \(region.rawValue)")
     }
 
     /// Called once the SwiftData ModelContext is available (from TeslaCareApp.onAppear).
@@ -46,9 +59,9 @@ class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
     }
 
     private func setupAPI() {
-        logger.info("setupAPI: initializing TeslaSwift fleet API")
+        logger.info("setupAPI: initializing TeslaSwift fleet API, region=\(selectedRegion.rawValue)")
         api = TeslaSwift(teslaAPI: .fleetAPI(
-            region: .northAmericaAsiaPacific,
+            region: selectedRegion,
             clientID: clientID,
             clientSecret: clientSecret,
             redirectURI: redirectURI,
@@ -385,11 +398,41 @@ struct TeslaAuthSheet: View {
             authManager: authManager,
             callbackURLScheme: "teslacare",
             signInDescription: "Sign in with your Tesla account to automatically sync your vehicle information and tire data.",
-            onVehiclesLoaded: { authManager.syncCars(into: modelContext) }
+            onVehiclesLoaded: { authManager.syncCars(into: modelContext) },
+            loginExtraContent: {
+                TeslaRegionPicker(authManager: authManager)
+            }
         ) { vehicle in
             TeslaConnectedVehicleRow(vehicle: vehicle)
                 .environmentObject(authManager)
         }
+    }
+}
+
+private struct TeslaRegionPicker: View {
+    @ObservedObject var authManager: TeslaAuthManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Fleet Region", systemImage: "network")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+            Picker("Fleet Region", selection: Binding(
+                get: { authManager.selectedRegion },
+                set: { authManager.selectRegion($0) }
+            )) {
+                Text("Americas & Asia-Pacific").tag(TeslaAPI.Region.northAmericaAsiaPacific)
+                Text("Europe, Middle East & Africa").tag(TeslaAPI.Region.europeMiddleEastAfrica)
+                Text("China").tag(TeslaAPI.Region.china)
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .padding(.horizontal)
     }
 }
 

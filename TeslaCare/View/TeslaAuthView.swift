@@ -33,7 +33,7 @@ public protocol TeslaAuthenticating: ObservableObject {
 
 /// Tesla sign-in / vehicle list UI. Generic over any `TeslaAuthenticating`
 /// manager and any vehicle-row view, so the same component works across apps.
-public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View>: View {
+public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View, LoginExtra: View>: View {
     @ObservedObject private var authManager: Manager
     @Environment(\.dismiss) private var dismiss
 
@@ -46,6 +46,7 @@ public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View>: Vie
     private let signInDescription: LocalizedStringKey
     private let signInButtonLabel: LocalizedStringKey
     private let onVehiclesLoaded: () -> Void
+    private let loginExtraContent: () -> LoginExtra
     private let vehicleRow: (Vehicle) -> VehicleRow
 
     private static var logger: Logger {
@@ -60,6 +61,7 @@ public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View>: Vie
         signInDescription: LocalizedStringKey = "Sign in with your Tesla account to access your vehicle data.",
         signInButtonLabel: LocalizedStringKey = "Sign In with Tesla",
         onVehiclesLoaded: @escaping () -> Void = {},
+        @ViewBuilder loginExtraContent: @escaping () -> LoginExtra,
         @ViewBuilder vehicleRow: @escaping (Vehicle) -> VehicleRow
     ) {
         self.authManager = authManager
@@ -69,6 +71,7 @@ public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View>: Vie
         self.signInDescription = signInDescription
         self.signInButtonLabel = signInButtonLabel
         self.onVehiclesLoaded = onVehiclesLoaded
+        self.loginExtraContent = loginExtraContent
         self.vehicleRow = vehicleRow
     }
 
@@ -110,6 +113,8 @@ public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View>: Vie
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
+
+            loginExtraContent()
 
             if let errorMessage = authManager.errorMessage {
                 Text(errorMessage)
@@ -246,6 +251,33 @@ public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View>: Vie
         session.prefersEphemeralWebBrowserSession = false
         session.start()
         authSession = session
+    }
+}
+
+// MARK: - Convenience init (no extra login content)
+
+extension TeslaAuthView where LoginExtra == EmptyView {
+    public init(
+        authManager: Manager,
+        callbackURLScheme: String,
+        title: LocalizedStringKey = "Tesla Account",
+        signInPrompt: LocalizedStringKey = "Connect Your Tesla",
+        signInDescription: LocalizedStringKey = "Sign in with your Tesla account to access your vehicle data.",
+        signInButtonLabel: LocalizedStringKey = "Sign In with Tesla",
+        onVehiclesLoaded: @escaping () -> Void = {},
+        @ViewBuilder vehicleRow: @escaping (Vehicle) -> VehicleRow
+    ) {
+        self.init(
+            authManager: authManager,
+            callbackURLScheme: callbackURLScheme,
+            title: title,
+            signInPrompt: signInPrompt,
+            signInDescription: signInDescription,
+            signInButtonLabel: signInButtonLabel,
+            onVehiclesLoaded: onVehiclesLoaded,
+            loginExtraContent: { EmptyView() },
+            vehicleRow: vehicleRow
+        )
     }
 }
 
