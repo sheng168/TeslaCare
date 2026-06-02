@@ -38,6 +38,9 @@ final class CloudKitPublicService {
         let record = CKRecord(recordType: "PublicCar", recordID: recordID)
         applyFields(of: car, listingType: listingType, listingURL: listingURL, askingPrice: askingPrice, hasFSD: hasFSD, freeSupercharging: freeSupercharging, to: record)
         if let city = await approximateCity(for: car) { record["locationCity"] = city as CKRecordValue }
+        if let lat = car.latitude, let lon = car.longitude {
+            record["location"] = CLLocation(latitude: lat, longitude: lon)
+        }
 
         do {
             _ = try await publicDB.save(record)
@@ -46,6 +49,7 @@ final class CloudKitPublicService {
             guard let serverRecord = ckError.serverRecord else { throw ckError }
             applyFields(of: car, listingType: listingType, listingURL: listingURL, askingPrice: askingPrice, hasFSD: hasFSD, freeSupercharging: freeSupercharging, to: serverRecord)
             if let city = record["locationCity"] as? String { serverRecord["locationCity"] = city as CKRecordValue }
+            if let location = record["location"] as? CLLocation { serverRecord["location"] = location }
             _ = try await publicDB.save(serverRecord)
         }
 

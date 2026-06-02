@@ -7,6 +7,18 @@
 
 import SwiftUI
 
+enum CommunityViewMode: String, CaseIterable {
+    case list = "List"
+    case map  = "Map"
+
+    var systemImage: String {
+        switch self {
+        case .list: return "list.bullet"
+        case .map:  return "map"
+        }
+    }
+}
+
 enum CarSortOption: String, CaseIterable {
     case newestFirst  = "Newest First"
     case oldestFirst  = "Oldest First"
@@ -34,6 +46,7 @@ struct PublicCarsView: View {
     @State private var sortOption: CarSortOption = .newestFirst
     @State private var filters = CarFilterState()
     @State private var showingFilterSheet = false
+    @State private var viewMode: CommunityViewMode = .list
 
     private var displayedCars: [PublicCarRecord] {
         var cars = service.publicCars
@@ -83,12 +96,17 @@ struct PublicCarsView: View {
                         description: Text(filters.isActive ? "Try adjusting your filters." : "Be the first to publish your car.")
                     )
                 } else {
-                    List(displayedCars) { car in
-                        NavigationLink(destination: PublicCarDetailView(car: car)) {
-                            PublicCarRowView(car: car)
+                    switch viewMode {
+                    case .list:
+                        List(displayedCars) { car in
+                            NavigationLink(destination: PublicCarDetailView(car: car)) {
+                                PublicCarRowView(car: car)
+                            }
                         }
+                        .listStyle(.insetGrouped)
+                    case .map:
+                        PublicCarsMapView(cars: displayedCars)
                     }
-                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle("Community")
@@ -100,6 +118,16 @@ struct PublicCarsView: View {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
                     .disabled(service.isLoading)
+                }
+                ToolbarItem(placement: .principal) {
+                    Picker("View Mode", selection: $viewMode) {
+                        ForEach(CommunityViewMode.allCases, id: \.self) { mode in
+                            Label(mode.rawValue, systemImage: mode.systemImage).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(maxWidth: 180)
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -256,6 +284,49 @@ struct PublicCarRowView: View {
 }
 
 #Preview {
-    PublicCarsView()
-        .environment(CloudKitPublicService())
+    let service = CloudKitPublicService()
+    service.publicCars = [
+        PublicCarRecord(
+            id: "preview-1", name: "My Model 3", make: "Tesla", model: "Model 3", year: 2022,
+            trimSummary: "Long Range AWD", vin: "5YJ3E1EA1NF012345", mileage: 28_450,
+            tireHealthPercentage: 74, averageTreadDepth: 6.8,
+            locationCity: "San Francisco, CA",
+            latitude: 37.7749, longitude: -122.4194,
+            listingType: .forSale, listingURL: URL(string: "https://example.com/listing/1"),
+            askingPrice: 32_500, hasFSD: true, freeSupercharging: false,
+            publishedAt: Date().addingTimeInterval(-86_400 * 3)
+        ),
+        PublicCarRecord(
+            id: "preview-2", name: "Loaner Y", make: "Tesla", model: "Model Y", year: 2024,
+            trimSummary: "Performance", vin: nil, mileage: 5_120,
+            tireHealthPercentage: 95, averageTreadDepth: 9.0,
+            locationCity: "Los Angeles, CA",
+            latitude: 34.0522, longitude: -118.2437,
+            listingType: .rental, listingURL: nil,
+            askingPrice: nil, hasFSD: false, freeSupercharging: true,
+            publishedAt: Date().addingTimeInterval(-86_400)
+        ),
+        PublicCarRecord(
+            id: "preview-3", name: "Road-trip S", make: "Tesla", model: "Model S", year: 2021,
+            trimSummary: "Plaid", vin: nil, mileage: 41_800,
+            tireHealthPercentage: 48, averageTreadDepth: 4.1,
+            locationCity: "Seattle, WA",
+            latitude: 47.6062, longitude: -122.3321,
+            listingType: .forSale, listingURL: URL(string: "https://example.com/listing/3"),
+            askingPrice: 58_900, hasFSD: true, freeSupercharging: true,
+            publishedAt: Date().addingTimeInterval(-86_400 * 10)
+        ),
+        PublicCarRecord(
+            id: "preview-4", name: "City X", make: "Tesla", model: "Model X", year: 2023,
+            trimSummary: "Long Range", vin: nil, mileage: 12_300,
+            tireHealthPercentage: 88, averageTreadDepth: 8.2,
+            locationCity: "Austin, TX",
+            latitude: 30.2672, longitude: -97.7431,
+            listingType: .rental, listingURL: nil,
+            askingPrice: nil, hasFSD: false, freeSupercharging: false,
+            publishedAt: Date().addingTimeInterval(-86_400 * 5)
+        )
+    ]
+    return PublicCarsView()
+        .environment(service)
 }

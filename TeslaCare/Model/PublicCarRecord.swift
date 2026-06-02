@@ -7,6 +7,7 @@
 
 import Foundation
 import CloudKit
+import CoreLocation
 
 enum ListingType: String, CaseIterable {
     case forSale = "For Sale"
@@ -25,6 +26,8 @@ struct PublicCarRecord: Identifiable {
     let tireHealthPercentage: Double?
     let averageTreadDepth: Double?
     let locationCity: String?
+    let latitude: Double?
+    let longitude: Double?
     let listingType: ListingType?
     let listingURL: URL?
     let askingPrice: Double?
@@ -39,7 +42,8 @@ struct PublicCarRecord: Identifiable {
     init(id: String, name: String, make: String, model: String, year: Int,
          trimSummary: String?, vin: String?, mileage: Int?,
          tireHealthPercentage: Double?, averageTreadDepth: Double?,
-         locationCity: String?, listingType: ListingType?, listingURL: URL?,
+         locationCity: String?, latitude: Double? = nil, longitude: Double? = nil,
+         listingType: ListingType?, listingURL: URL?,
          askingPrice: Double? = nil, hasFSD: Bool? = nil, freeSupercharging: Bool? = nil,
          publishedAt: Date) {
         self.id = id
@@ -53,6 +57,8 @@ struct PublicCarRecord: Identifiable {
         self.tireHealthPercentage = tireHealthPercentage
         self.averageTreadDepth = averageTreadDepth
         self.locationCity = locationCity
+        self.latitude = latitude
+        self.longitude = longitude
         self.listingType = listingType
         self.listingURL = listingURL
         self.askingPrice = askingPrice
@@ -73,6 +79,13 @@ struct PublicCarRecord: Identifiable {
         tireHealthPercentage = record["tireHealthPercentage"] as? Double
         averageTreadDepth = record["averageTreadDepth"] as? Double
         locationCity = record["locationCity"] as? String
+        if let location = record["location"] as? CLLocation {
+            latitude = location.coordinate.latitude
+            longitude = location.coordinate.longitude
+        } else {
+            latitude = nil
+            longitude = nil
+        }
         listingType = (record["listingType"] as? String).flatMap { ListingType(rawValue: $0) }
         listingURL = (record["listingURL"] as? String).flatMap { URL(string: $0) }
         askingPrice = (record["askingPrice"] as? NSNumber)?.doubleValue
