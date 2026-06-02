@@ -8,8 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		3C0F5D462FAE090B00981291 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 3C0F5D412FAE090B00981291 /* README.md */; };
-		3C0F5D822FAE681F00981291 /* TeslaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3C0F5D812FAE681F00981291 /* TeslaSwift */; };
 		3C7E9CA52FBD1C8C008082E0 /* TezCare Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 3C7E9C852FBD1C8B008082E0 /* TezCare Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3CC3A9732FCF3B9F004D3145 /* TeslaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3CC3A9722FCF3B9F004D3145 /* TeslaSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,7 +126,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3C0F5D822FAE681F00981291 /* TeslaSwift in Frameworks */,
+				3CC3A9732FCF3B9F004D3145 /* TeslaSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -218,7 +218,7 @@
 			);
 			name = TeslaCare;
 			packageProductDependencies = (
-				3C0F5D812FAE681F00981291 /* TeslaSwift */,
+				3CC3A9722FCF3B9F004D3145 /* TeslaSwift */,
 			);
 			productName = TeslaCare;
 			productReference = 3C05F4382FACEA9A00AEBE42 /* TezCare.app */;
@@ -382,7 +382,7 @@
 			mainGroup = 3C05F42F2FACEA9A00AEBE42;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				3C0F5D802FAE681F00981291 /* XCRemoteSwiftPackageReference "TeslaSwift" */,
+				3CC3A9712FCF3B9F004D3145 /* XCRemoteSwiftPackageReference "TeslaSwift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3C05F4392FACEA9A00AEBE42 /* Products */;
@@ -1027,9 +1027,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		3C0F5D802FAE681F00981291 /* XCRemoteSwiftPackageReference "TeslaSwift" */ = {
+		3CC3A9712FCF3B9F004D3145 /* XCRemoteSwiftPackageReference "TeslaSwift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/jonasman/TeslaSwift.git";
+			repositoryURL = "https://github.com/sheng168/TeslaSwift";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 12.2.0;
@@ -1038,9 +1038,9 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		3C0F5D812FAE681F00981291 /* TeslaSwift */ = {
+		3CC3A9722FCF3B9F004D3145 /* TeslaSwift */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3C0F5D802FAE681F00981291 /* XCRemoteSwiftPackageReference "TeslaSwift" */;
+			package = 3CC3A9712FCF3B9F004D3145 /* XCRemoteSwiftPackageReference "TeslaSwift" */;
 			productName = TeslaSwift;
 		};
 /* End XCSwiftPackageProductDependency section */

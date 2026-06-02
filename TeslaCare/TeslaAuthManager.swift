@@ -15,7 +15,7 @@ import TeslaSwift
 private let logger = Logger(subsystem: "com.teslacare", category: "TeslaSync")
 
 @MainActor
-class TeslaAuthManager: ObservableObject {
+class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
     @Published var isAuthenticated = false
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -367,6 +367,98 @@ class TeslaAuthManager: ObservableObject {
         case "Y": return "Model Y"
         case "C": return "Cybertruck"
         default:  return nil
+        }
+    }
+}
+
+// MARK: - TeslaCare-specific Auth Sheet wrapper
+
+/// Project-specific wiring around the reusable `TeslaAuthView`.
+/// Pre-configures the redirect URL scheme, copy, post-auth sync into
+/// SwiftData, and the project-specific vehicle row.
+struct TeslaAuthSheet: View {
+    @EnvironmentObject private var authManager: TeslaAuthManager
+    @Environment(\.modelContext) private var modelContext
+
+    var body: some View {
+        TeslaAuthView(
+            authManager: authManager,
+            callbackURLScheme: "teslacare",
+            signInDescription: "Sign in with your Tesla account to automatically sync your vehicle information and tire data.",
+            onVehiclesLoaded: { authManager.syncCars(into: modelContext) }
+        ) { vehicle in
+            TeslaConnectedVehicleRow(vehicle: vehicle)
+                .environmentObject(authManager)
+        }
+    }
+}
+
+/// Row showing extended Tesla vehicle data (VIN-decoded year/model, trim,
+/// odometer, TPMS pressures) inside the connected vehicles list.
+struct TeslaConnectedVehicleRow: View {
+    let vehicle: Vehicle
+    @EnvironmentObject private var authManager: TeslaAuthManager
+
+    var body: some View {
+        let extended = vehicle.vin.flatMap { authManager.vehicleData[$0] }
+        VStack(alignment: .leading, spacing: 4) {
+            Text(vehicle.displayName ?? "Tesla Vehicle")
+                .font(.headline)
+            if let vin = vehicle.vin {
+                let year = authManager.vinYear(vin)
+                let model = authManager.vinModel(vin)
+                Text("\(year.map(String.init) ?? "Tesla") Tesla \(model ?? "Vehicle")")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                if let trim = extended?.vehicleConfig?.trimBadging {
+                    Text(formatTrim(trim))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let odometer = extended?.vehicleState?.odometer {
+                    Text("\(Int(odometer).formatted()) mi")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                let vs = extended?.vehicleState
+                if vs?.tpms_pressure_fl != nil {
+                    HStack(spacing: 10) {
+                        tpmsBadge("FL", bar: vs?.tpms_pressure_fl)
+                        tpmsBadge("FR", bar: vs?.tpms_pressure_fr)
+                        tpmsBadge("RL", bar: vs?.tpms_pressure_rl)
+                        tpmsBadge("RR", bar: vs?.tpms_pressure_rr)
+                    }
+                    .padding(.top, 2)
+                }
+                Text("VIN: \(vin)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func formatTrim(_ badge: String) -> String {
+        badge.replacingOccurrences(of: "_", with: " ").uppercased()
+    }
+
+    @ViewBuilder
+    private func tpmsBadge(_ label: String, bar: Double?) -> some View {
+        let psi = bar.map { $0 * 14.504 }
+        let color: Color = {
+            guard let psi else { return .secondary }
+            if psi < 28 { return .red }
+            if psi < 36 { return .orange }
+            return .green
+        }()
+        VStack(spacing: 1) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(psi.map { String(format: "%.0f", $0) } ?? "--")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
         }
     }
 }

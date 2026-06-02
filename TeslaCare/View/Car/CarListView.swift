@@ -154,7 +154,7 @@ struct CarListView: View {
                 AddCarView()
             }
             .sheet(isPresented: $showingTeslaAuth) {
-                TeslaAuthView()
+                TeslaAuthSheet()
             }
             .overlay {
                 if cars.isEmpty {

@@ -1,30 +1,78 @@
 //
 //  TeslaAuthView.swift
-//  TeslaCare
 //
-//  Created by Jin on 5/8/26.
+//  Reusable Tesla OAuth sign-in component. Drop this file into any project
+//  using TeslaSwift; supply an auth manager conforming to
+//  `TeslaAuthenticating`, the app's redirect URL scheme, and a vehicle-row
+//  view-builder.
 //
 
 import SwiftUI
-import SwiftData
 import OSLog
 import TeslaSwift
 import AuthenticationServices
 import SafariServices
 
-private let logger = Logger(subsystem: "com.teslacare", category: "TeslaSync")
+// MARK: - Protocol
 
-struct TeslaAuthView: View {
-    @EnvironmentObject private var authManager: TeslaAuthManager
+/// Minimum surface a Tesla auth manager must expose to drive `TeslaAuthView`.
+@MainActor
+public protocol TeslaAuthenticating: ObservableObject {
+    var isAuthenticated: Bool { get }
+    var isLoading: Bool { get }
+    var errorMessage: String? { get set }
+    var vehicles: [Vehicle] { get }
+
+    func getAuthorizationURL() -> URL?
+    func authenticate(callbackURL: URL) async
+    func fetchVehicles() async
+    func logout()
+}
+
+// MARK: - View
+
+/// Tesla sign-in / vehicle list UI. Generic over any `TeslaAuthenticating`
+/// manager and any vehicle-row view, so the same component works across apps.
+public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View>: View {
+    @ObservedObject private var authManager: Manager
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @State private var showingWebAuth = false
-    // Keep a strong reference so the presentation context provider isn't deallocated
-    // while the ASWebAuthenticationSession is in progress
-    @State private var authSession: ASWebAuthenticationSession?
-    @State private var contextProvider: ASWebAuthenticationPresentationContextProvider?
 
-    var body: some View {
+    @State private var authSession: ASWebAuthenticationSession?
+    @State private var contextProvider: AuthPresentationContextProvider?
+
+    private let callbackURLScheme: String
+    private let title: LocalizedStringKey
+    private let signInPrompt: LocalizedStringKey
+    private let signInDescription: LocalizedStringKey
+    private let signInButtonLabel: LocalizedStringKey
+    private let onVehiclesLoaded: () -> Void
+    private let vehicleRow: (Vehicle) -> VehicleRow
+
+    private static var logger: Logger {
+        Logger(subsystem: Bundle.main.bundleIdentifier ?? "TeslaAuth", category: "TeslaAuthView")
+    }
+
+    public init(
+        authManager: Manager,
+        callbackURLScheme: String,
+        title: LocalizedStringKey = "Tesla Account",
+        signInPrompt: LocalizedStringKey = "Connect Your Tesla",
+        signInDescription: LocalizedStringKey = "Sign in with your Tesla account to access your vehicle data.",
+        signInButtonLabel: LocalizedStringKey = "Sign In with Tesla",
+        onVehiclesLoaded: @escaping () -> Void = {},
+        @ViewBuilder vehicleRow: @escaping (Vehicle) -> VehicleRow
+    ) {
+        self.authManager = authManager
+        self.callbackURLScheme = callbackURLScheme
+        self.title = title
+        self.signInPrompt = signInPrompt
+        self.signInDescription = signInDescription
+        self.signInButtonLabel = signInButtonLabel
+        self.onVehiclesLoaded = onVehiclesLoaded
+        self.vehicleRow = vehicleRow
+    }
+
+    public var body: some View {
         NavigationStack {
             Group {
                 if authManager.isAuthenticated {
@@ -33,18 +81,16 @@ struct TeslaAuthView: View {
                     loginView
                 }
             }
-            .navigationTitle("Tesla Account")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        dismiss()
-                    }
+                    Button("Close") { dismiss() }
                 }
             }
             .onChange(of: authManager.isLoading) { _, isLoading in
                 if !isLoading && authManager.isAuthenticated && !authManager.vehicles.isEmpty {
-                    syncCarsFromTesla()
+                    onVehiclesLoaded()
                 }
             }
         }
@@ -56,11 +102,11 @@ struct TeslaAuthView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(.blue)
 
-            Text("Connect Your Tesla")
+            Text(signInPrompt)
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("Sign in with your Tesla account to automatically sync your vehicle information and tire data.")
+            Text(signInDescription)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
@@ -80,11 +126,10 @@ struct TeslaAuthView: View {
             } label: {
                 HStack {
                     if authManager.isLoading {
-                        ProgressView()
-                            .tint(.white)
+                        ProgressView().tint(.white)
                     } else {
                         Image(systemName: "person.badge.key.fill")
-                        Text("Sign In with Tesla")
+                        Text(signInButtonLabel)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -122,52 +167,14 @@ struct TeslaAuthView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(authManager.vehicles.indices, id: \.self) { index in
-                        let vehicle = authManager.vehicles[index]
-                        let extended = vehicle.vin.flatMap { authManager.vehicleData[$0] }
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(vehicle.displayName ?? "Tesla Vehicle")
-                                .font(.headline)
-                            if let vin = vehicle.vin {
-                                let year = authManager.vinYear(vin)
-                                let model = authManager.vinModel(vin)
-                                Text("\(year.map(String.init) ?? "Tesla") Tesla \(model ?? "Vehicle")")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                if let trim = extended?.vehicleConfig?.trimBadging {
-                                    Text(formatTrim(trim))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                if let odometer = extended?.vehicleState?.odometer {
-                                    Text("\(Int(odometer).formatted()) mi")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                let vs = extended?.vehicleState
-                                if vs?.tpms_pressure_fl != nil {
-                                    HStack(spacing: 10) {
-                                        tpmsBadge("FL", bar: vs?.tpms_pressure_fl)
-                                        tpmsBadge("FR", bar: vs?.tpms_pressure_fr)
-                                        tpmsBadge("RL", bar: vs?.tpms_pressure_rl)
-                                        tpmsBadge("RR", bar: vs?.tpms_pressure_rr)
-                                    }
-                                    .padding(.top, 2)
-                                }
-                                Text("VIN: \(vin)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        .padding(.vertical, 4)
+                        vehicleRow(authManager.vehicles[index])
                     }
                 }
             }
 
             Section {
                 Button {
-                    Task {
-                        await authManager.fetchVehicles()
-                    }
+                    Task { await authManager.fetchVehicles() }
                 } label: {
                     Label("Refresh Vehicles", systemImage: "arrow.clockwise")
                 }
@@ -184,44 +191,15 @@ struct TeslaAuthView: View {
         }
     }
 
-    private func syncCarsFromTesla() {
-        logger.info("syncCarsFromTesla: triggered after vehicle load")
-        authManager.syncCars(into: modelContext)
-    }
-
-    private func formatTrim(_ badge: String) -> String {
-        badge.replacingOccurrences(of: "_", with: " ").uppercased()
-    }
-
-    @ViewBuilder
-    private func tpmsBadge(_ label: String, bar: Double?) -> some View {
-        let psi = bar.map { $0 * 14.504 }
-        let color: Color = {
-            guard let psi else { return .secondary }
-            if psi < 28 { return .red }
-            if psi < 36 { return .orange }
-            return .green
-        }()
-        VStack(spacing: 1) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text(psi.map { String(format: "%.0f", $0) } ?? "--")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(color)
-        }
-    }
-
     private func startAuthentication() {
-        logger.info("startAuthentication: initiating OAuth session")
+        Self.logger.info("startAuthentication: initiating OAuth session")
         guard let authURL = authManager.getAuthorizationURL() else {
-            logger.error("startAuthentication: failed to generate authorization URL")
+            Self.logger.error("startAuthentication: failed to generate authorization URL")
             authManager.errorMessage = "Failed to generate authorization URL"
             return
         }
 
-        let provider = ASWebAuthenticationPresentationContextProvider { _ in
+        let provider = AuthPresentationContextProvider { _ in
             #if os(iOS)
             let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             let activeScene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
@@ -237,30 +215,28 @@ struct TeslaAuthView: View {
             return ASPresentationAnchor()
             #endif
         }
-        // Retain the provider so it isn't deallocated before the session finishes
         contextProvider = provider
 
         let session = ASWebAuthenticationSession(
             url: authURL,
-            callbackURLScheme: "teslacare"
-        ) { [self] callbackURL, error in
+            callbackURLScheme: callbackURLScheme
+        ) { callbackURL, error in
             contextProvider = nil
             authSession = nil
 
             if let error = error {
-                logger.error("startAuthentication: OAuth session error — \(error)")
+                Self.logger.error("startAuthentication: OAuth session error — \(error)")
                 authManager.errorMessage = "Authentication cancelled: \(error.localizedDescription)"
                 return
             }
 
             guard let callbackURL = callbackURL else {
-                logger.error("startAuthentication: no callback URL received")
+                Self.logger.error("startAuthentication: no callback URL received")
                 authManager.errorMessage = "Failed to receive callback URL"
                 return
             }
-            logger.info("startAuthentication: received callback URL")
+            Self.logger.info("startAuthentication: received callback URL")
 
-            // Pass the full callback URL — authenticateWebNative parses the code from it
             Task {
                 await authManager.authenticate(callbackURL: callbackURL)
             }
@@ -269,43 +245,46 @@ struct TeslaAuthView: View {
         session.presentationContextProvider = provider
         session.prefersEphemeralWebBrowserSession = false
         session.start()
-        // Retain the session so it isn't cancelled before completing
         authSession = session
     }
 }
 
-// MARK: - Web Login UIViewControllerRepresentable
+// MARK: - Web Login (SFSafariViewController-based fallback)
 
 /// Wraps TeslaSwift's SFSafariViewController-based OAuth login flow.
-/// Present this view to show the Tesla login page inline.
-/// Handle the callback URL externally via `.onOpenURL` and call
+/// Present this view to show the Tesla login page inline. Handle the
+/// callback URL externally via `.onOpenURL` and call
 /// `api.authenticateWebNative(url:)` to exchange it for an `AuthToken`.
-struct TeslaWebLogin: UIViewControllerRepresentable {
+public struct TeslaWebLogin: UIViewControllerRepresentable {
     let api: TeslaSwift
-    /// Called when the user dismisses the Safari view without completing login.
     var onCancel: () -> Void = {}
 
-    func makeCoordinator() -> Coordinator {
+    public init(api: TeslaSwift, onCancel: @escaping () -> Void = {}) {
+        self.api = api
+        self.onCancel = onCancel
+    }
+
+    public func makeCoordinator() -> Coordinator {
         Coordinator(onCancel: onCancel)
     }
 
-    func makeUIViewController(context: Context) -> SFSafariViewController {
+    public func makeUIViewController(context: Context) -> SFSafariViewController {
         guard let vc = api.authenticateWeb(delegate: context.coordinator) else {
             fatalError("TeslaSwift failed to produce an SFSafariViewController")
         }
         return vc
     }
 
-    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
+    public func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 
-    final class Coordinator: NSObject, SFSafariViewControllerDelegate {
+    public final class Coordinator: NSObject, SFSafariViewControllerDelegate {
         var onCancel: () -> Void
 
         init(onCancel: @escaping () -> Void) {
             self.onCancel = onCancel
         }
 
-        func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+        public func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
             onCancel()
         }
     }
@@ -313,7 +292,7 @@ struct TeslaWebLogin: UIViewControllerRepresentable {
 
 // MARK: - Presentation Context Provider
 
-private class ASWebAuthenticationPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+private final class AuthPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
     let provider: (ASWebAuthenticationSession) -> ASPresentationAnchor
 
     init(provider: @escaping (ASWebAuthenticationSession) -> ASPresentationAnchor) {
@@ -328,6 +307,11 @@ private class ASWebAuthenticationPresentationContextProvider: NSObject, ASWebAut
 // MARK: - Previews
 
 #Preview {
-    TeslaAuthView()
-        .environmentObject(TeslaAuthManager())
+    TeslaAuthView(
+        authManager: TeslaAuthManager(),
+        callbackURLScheme: "teslacare"
+    ) { vehicle in
+        Text(vehicle.displayName ?? "Tesla Vehicle")
+            .padding(.vertical, 4)
+    }
 }

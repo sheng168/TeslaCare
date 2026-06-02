@@ -1,5 +1,5 @@
 {
-  "originHash" : "02d6b01de4646fea55ab8d6f8a9d87e2e1c3e0ec45f0c088ace7dbae751ac674",
+  "originHash" : "b767e519a7441146d6c770080f459c4e52c5fd003b0016679937e8fa6957e7f9",
   "pins" : [
     {
       "identity" : "starscream",
@@ -13,7 +13,7 @@
     {
       "identity" : "teslaswift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/jonasman/TeslaSwift.git",
+      "location" : "https://github.com/sheng168/TeslaSwift",
       "state" : {
         "revision" : "0c2ff15dea6feb2ee62558a00e7ae6b186b7078a",
         "version" : "12.2.0"
