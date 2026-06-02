@@ -1,5 +1,5 @@
 {
-  "originHash" : "b767e519a7441146d6c770080f459c4e52c5fd003b0016679937e8fa6957e7f9",
+  "originHash" : "ab4e25fc94399d2be04bc3e186e97ca083a6f760bebc7e68953fe3e1402d15af",
   "pins" : [
     {
       "identity" : "starscream",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "c6bfd1af48efcc9a9ad203665db12375ba6b145a",
         "version" : "4.0.8"
-      }
-    },
-    {
-      "identity" : "teslaswift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sheng168/TeslaSwift",
-      "state" : {
-        "revision" : "0c2ff15dea6feb2ee62558a00e7ae6b186b7078a",
-        "version" : "12.2.0"
       }
     }
   ],

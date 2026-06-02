@@ -52,7 +52,7 @@ class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
             clientID: clientID,
             clientSecret: clientSecret,
             redirectURI: redirectURI,
-            scopes: [.openId, .offlineAccess, .vehicleDeviceData, .vehicleCmds]
+            scopes: [.openId, .offlineAccess, .vehicleDeviceData, .vehicleCmds, .vehicleLocation]
         ))
         api?.debuggingEnabled = true
     }
