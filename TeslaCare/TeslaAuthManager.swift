@@ -419,8 +419,8 @@ private struct TeslaRegionPicker: View {
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
             Picker("Fleet Region", selection: Binding(
-                get: { authManager.selectedRegion },
-                set: { authManager.selectRegion($0) }
+                get: { self.authManager.selectedRegion },
+                set: { self.authManager.selectRegion($0) }
             )) {
                 Text("Americas & Asia-Pacific").tag(TeslaAPI.Region.northAmericaAsiaPacific)
                 Text("Europe, Middle East & Africa").tag(TeslaAPI.Region.europeMiddleEastAfrica)
