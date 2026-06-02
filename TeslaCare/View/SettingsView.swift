@@ -22,8 +22,10 @@ struct SettingsView: View {
     @EnvironmentObject private var authManager: TeslaAuthManager
 
     @State private var showingTeslaAuth = false
+    @State private var showingDeleteConfirmation = false
     @State private var iCloudStatus: CKAccountStatus = .couldNotDetermine
     @Query private var cars: [Car]
+    @Query private var credentials: [TeslaCredential]
 
     private var mostRecentUpdate: Date? {
         cars.compactMap(\.lastUpdatedAt).max()
@@ -171,7 +173,7 @@ struct SettingsView: View {
 
                 Section {
                     Button(role: .destructive) {
-                        // Show confirmation alert
+                        showingDeleteConfirmation = true
                     } label: {
                         Text("Delete All Data")
                     }
@@ -183,7 +185,22 @@ struct SettingsView: View {
             .sheet(isPresented: $showingTeslaAuth) {
                 TeslaAuthSheet()
             }
+            .alert("Delete All Data", isPresented: $showingDeleteConfirmation) {
+                Button("Delete", role: .destructive) {
+                    deleteAllData()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will permanently delete all cars, tire measurements, and maintenance history. This action cannot be undone.")
+            }
         }
+    }
+
+    private func deleteAllData() {
+        cars.forEach { modelContext.delete($0) }
+        credentials.forEach { modelContext.delete($0) }
+        authManager.logout()
+        logger.info("All user data deleted")
     }
 
     // MARK: - iCloud Helpers
