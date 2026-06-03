@@ -105,15 +105,21 @@ struct PublicCarsMapView: View {
         })
         guard !cities.isEmpty else { return }
 
-        let geocoder = CLGeocoder()
         for city in cities {
-            do {
-                if let placemark = try await geocoder.geocodeAddressString(city).first,
-                   let coord = placemark.location?.coordinate {
-                    geocoded[city] = coord
+            guard let request = MKGeocodingRequest(addressString: city) else { continue }
+            if let coordinate = await coordinate(for: request) {
+                geocoded[city] = coordinate
+            }
+        }
+    }
+
+    private func coordinate(for request: MKGeocodingRequest) async -> CLLocationCoordinate2D? {
+        await withCheckedContinuation { continuation in
+            request.getMapItems { mapItems, error in
+                if let error {
+                    logger.error("Geocode failed: \(error.localizedDescription)")
                 }
-            } catch {
-                logger.error("Geocode failed for \(city): \(error.localizedDescription)")
+                continuation.resume(returning: mapItems?.first?.location.coordinate)
             }
         }
     }
