@@ -43,13 +43,35 @@ struct CarFilterState: Equatable {
 struct PublicCarsView: View {
     @Environment(CloudKitPublicService.self) private var service
 
-    @State private var sortOption: CarSortOption = .newestFirst
-    @State private var filters = CarFilterState()
+    @AppStorage("community.sortOption") private var sortOption: CarSortOption = .newestFirst
+    @AppStorage("community.viewMode") private var viewMode: CommunityViewMode = .list
+    @AppStorage("community.filter.listingType") private var filterListingTypeRaw: String = ""
+    @AppStorage("community.filter.requireFSD") private var filterRequireFSD: Bool = false
+    @AppStorage("community.filter.requireFreeSC") private var filterRequireFreeSC: Bool = false
     @State private var showingFilterSheet = false
-    @State private var viewMode: CommunityViewMode = .list
+
+    private var filters: CarFilterState {
+        CarFilterState(
+            listingType: ListingType(rawValue: filterListingTypeRaw),
+            requireFSD: filterRequireFSD,
+            requireFreeSC: filterRequireFreeSC
+        )
+    }
+
+    private var filtersBinding: Binding<CarFilterState> {
+        Binding(
+            get: { filters },
+            set: { newValue in
+                filterListingTypeRaw = newValue.listingType?.rawValue ?? ""
+                filterRequireFSD = newValue.requireFSD
+                filterRequireFreeSC = newValue.requireFreeSC
+            }
+        )
+    }
 
     private var displayedCars: [PublicCarRecord] {
         var cars = service.publicCars
+        let filters = self.filters
 
         if let type = filters.listingType {
             cars = cars.filter { $0.listingType == type }
@@ -138,7 +160,7 @@ struct PublicCarsView: View {
                 }
             }
             .sheet(isPresented: $showingFilterSheet) {
-                FilterSortSheet(sortOption: $sortOption, filters: $filters)
+                FilterSortSheet(sortOption: $sortOption, filters: filtersBinding)
             }
             .task {
                 await service.fetchPublicCars()

@@ -25,7 +25,7 @@ struct CarListView: View {
     @Query private var cars: [Car]
     @State private var showingAddCar = false
     @State private var showingTeslaAuth = false
-    @State private var sortOrder: CarSortOrder = .lastModified
+    @AppStorage("carList.sortOrder") private var sortOrder: CarSortOrder = .lastModified
     @State private var refreshErrorMessage: String?
 
     private var sortedCars: [Car] {
