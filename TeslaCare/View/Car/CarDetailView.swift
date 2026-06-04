@@ -29,7 +29,6 @@ struct CarDetailView: View {
     @State private var unpublishAlertMessage: String?
 
     @AppStorage("detail.headerExpanded") private var headerExpanded = true
-    @AppStorage("detail.chargersExpanded") private var chargersExpanded = true
     @AppStorage("detail.pressureExpanded") private var pressureExpanded = true
     @AppStorage("detail.tireGridExpanded") private var tireGridExpanded = true
     @AppStorage("detail.actionsExpanded") private var actionsExpanded = true
@@ -56,7 +55,6 @@ struct CarDetailView: View {
                 historyChartsSection
                 mileageChartSection
                 pressureSection
-                nearbyChargersSection
 
                 rotationHistorySection
                 replacementHistorySection
@@ -203,36 +201,6 @@ struct CarDetailView: View {
                     Text("Tire Pressure")
                         .font(.headline)
                         .foregroundStyle(.primary)
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-
-    @ViewBuilder
-    private var nearbyChargersSection: some View {
-        let chargers = (car.nearbyChargers ?? []).sorted { $0.distanceMiles < $1.distanceMiles }
-        if !chargers.isEmpty {
-            VStack(spacing: 0) {
-                DisclosureGroup(isExpanded: $chargersExpanded) {
-                    VStack(spacing: 8) {
-                        ForEach(chargers.prefix(5), id: \.persistentModelID) { charger in
-                            ChargerRowView(charger: charger)
-                        }
-                    }
-                    .padding(.top, 4)
-                } label: {
-                    HStack {
-                        Text("Nearby Chargers")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if let updated = chargers.first?.updatedAt {
-                            Text(updated, format: .relative(presentation: .named))
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
                 }
             }
             .padding(.horizontal)
