@@ -39,6 +39,7 @@ struct SettingsView: View {
                         Text("32nds of an inch").tag("imperial")
                         Text("Millimeters").tag("metric")
                     }
+                    .disabled(true)
                 }
 
                 Section("iCloud Sync") {
