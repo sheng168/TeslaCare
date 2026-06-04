@@ -26,11 +26,12 @@ struct AddMeasurementView: View {
     @State private var mileage = ""
     @State private var includeMileage = false
 
-    // Multiple measurements for uneven wear
+    // Multiple measurements for uneven wear — ordered innermost → outermost.
     @State private var useMultipleMeasurements = false
-    @State private var innerTreadDepth: Double = 8.0
-    @State private var centerTreadDepth: Double = 8.0
-    @State private var outerTreadDepth: Double = 8.0
+    @State private var multiPointDepths: [Double] = [8.0, 8.0, 8.0]
+
+    private let minMultiPointCount = 2
+    private let maxMultiPointCount = 7
 
     // Photos — originals saved; processedPhotos[i] is nil while cropping
     @State private var originalPhotos: [UIImage] = []
@@ -51,14 +52,10 @@ struct AddMeasurementView: View {
         // Prefill tread depth with latest measurement for the selected position
         if let latestMeasurement = car.latestMeasurement(for: position) {
             _treadDepth = State(initialValue: latestMeasurement.treadDepth)
-            _innerTreadDepth = State(initialValue: latestMeasurement.treadDepth)
-            _centerTreadDepth = State(initialValue: latestMeasurement.treadDepth)
-            _outerTreadDepth = State(initialValue: latestMeasurement.treadDepth)
+            _multiPointDepths = State(initialValue: Array(repeating: latestMeasurement.treadDepth, count: 3))
         } else {
             _treadDepth = State(initialValue: 8.0)
-            _innerTreadDepth = State(initialValue: 8.0)
-            _centerTreadDepth = State(initialValue: 8.0)
-            _outerTreadDepth = State(initialValue: 8.0)
+            _multiPointDepths = State(initialValue: [8.0, 8.0, 8.0])
         }
 
         // Prefill mileage from car's latest reading
@@ -85,14 +82,10 @@ struct AddMeasurementView: View {
                         // Update tread depth when position changes
                         if let latestMeasurement = car.latestMeasurement(for: newValue) {
                             treadDepth = latestMeasurement.treadDepth
-                            innerTreadDepth = latestMeasurement.treadDepth
-                            centerTreadDepth = latestMeasurement.treadDepth
-                            outerTreadDepth = latestMeasurement.treadDepth
+                            multiPointDepths = Array(repeating: latestMeasurement.treadDepth, count: multiPointDepths.count)
                         } else {
                             treadDepth = 8.0
-                            innerTreadDepth = 8.0
-                            centerTreadDepth = 8.0
-                            outerTreadDepth = 8.0
+                            multiPointDepths = Array(repeating: 8.0, count: multiPointDepths.count)
                         }
                     }
                     
@@ -166,125 +159,95 @@ struct AddMeasurementView: View {
                     
                     if useMultipleMeasurements {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("Measure tread depth at three points across the tire width to detect uneven wear patterns.")
+                            Text("Measure tread depth at multiple points across the tire width (innermost to outermost) to detect uneven wear patterns.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            
-                            // Inner tread depth
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Image(systemName: "arrow.left")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text("Inner Edge: ")
-                                        .font(.subheadline)
-                                    Text(String(format: "%.1f/32\"", innerTreadDepth))
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(treadColor(for: innerTreadDepth))
-                                    
-                                    Spacer()
-                                    
-                                    if innerTreadDepth <= 2.0 {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundStyle(.red)
+
+                            HStack {
+                                Text("\(multiPointDepths.count) measurement points")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button {
+                                    if multiPointDepths.count > minMultiPointCount {
+                                        multiPointDepths.removeLast()
+                                    }
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .font(.title3)
+                                }
+                                .buttonStyle(.borderless)
+                                .disabled(multiPointDepths.count <= minMultiPointCount)
+
+                                Button {
+                                    if multiPointDepths.count < maxMultiPointCount {
+                                        let seed = multiPointDepths.last ?? 8.0
+                                        multiPointDepths.append(seed)
+                                    }
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.title3)
+                                }
+                                .buttonStyle(.borderless)
+                                .disabled(multiPointDepths.count >= maxMultiPointCount)
+                            }
+
+                            ForEach(multiPointDepths.indices, id: \.self) { index in
+                                let label = pointLabel(index: index, total: multiPointDepths.count)
+
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Image(systemName: pointIcon(index: index, total: multiPointDepths.count))
                                             .font(.caption)
-                                    } else if innerTreadDepth <= 4.0 {
-                                        Image(systemName: "exclamationmark.circle.fill")
-                                            .foregroundStyle(.orange)
-                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text("\(label): ")
+                                            .font(.subheadline)
+                                        Text(String(format: "%.1f/32\"", multiPointDepths[index]))
+                                            .fontWeight(.bold)
+                                            .foregroundStyle(treadColor(for: multiPointDepths[index]))
+
+                                        Spacer()
+
+                                        if multiPointDepths[index] <= 2.0 {
+                                            Image(systemName: "exclamationmark.triangle.fill")
+                                                .foregroundStyle(.red)
+                                                .font(.caption)
+                                        } else if multiPointDepths[index] <= 4.0 {
+                                            Image(systemName: "exclamationmark.circle.fill")
+                                                .foregroundStyle(.orange)
+                                                .font(.caption)
+                                        }
+                                    }
+
+                                    Slider(value: $multiPointDepths[index], in: 0...12, step: 0.5) {
+                                        Text("\(label) Tread Depth")
                                     }
                                 }
-                                
-                                Slider(value: $innerTreadDepth, in: 0...12, step: 0.5) {
-                                    Text("Inner Tread Depth")
+                                if index < multiPointDepths.count - 1 {
+                                    Divider()
                                 }
                             }
-                            
+
                             Divider()
-                            
-                            // Center tread depth
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Image(systemName: "arrow.up.and.down")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text("Center: ")
-                                        .font(.subheadline)
-                                    Text(String(format: "%.1f/32\"", centerTreadDepth))
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(treadColor(for: centerTreadDepth))
-                                    
-                                    Spacer()
-                                    
-                                    if centerTreadDepth <= 2.0 {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundStyle(.red)
-                                            .font(.caption)
-                                    } else if centerTreadDepth <= 4.0 {
-                                        Image(systemName: "exclamationmark.circle.fill")
-                                            .foregroundStyle(.orange)
-                                            .font(.caption)
-                                    }
-                                }
-                                
-                                Slider(value: $centerTreadDepth, in: 0...12, step: 0.5) {
-                                    Text("Center Tread Depth")
-                                }
-                            }
-                            
-                            Divider()
-                            
-                            // Outer tread depth
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Image(systemName: "arrow.right")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text("Outer Edge: ")
-                                        .font(.subheadline)
-                                    Text(String(format: "%.1f/32\"", outerTreadDepth))
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(treadColor(for: outerTreadDepth))
-                                    
-                                    Spacer()
-                                    
-                                    if outerTreadDepth <= 2.0 {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundStyle(.red)
-                                            .font(.caption)
-                                    } else if outerTreadDepth <= 4.0 {
-                                        Image(systemName: "exclamationmark.circle.fill")
-                                            .foregroundStyle(.orange)
-                                            .font(.caption)
-                                    }
-                                }
-                                
-                                Slider(value: $outerTreadDepth, in: 0...12, step: 0.5) {
-                                    Text("Outer Tread Depth")
-                                }
-                            }
-                            
-                            Divider()
-                            
+
                             // Average depth display
-                            let avgDepth = (innerTreadDepth + centerTreadDepth + outerTreadDepth) / 3.0
+                            let avgDepth = multiPointDepths.reduce(0, +) / Double(multiPointDepths.count)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Average Depth")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .textCase(.uppercase)
-                                
+
                                 HStack {
                                     Text(String(format: "%.1f/32\"", avgDepth))
                                         .font(.title3)
                                         .fontWeight(.bold)
                                         .foregroundStyle(treadColor(for: avgDepth))
-                                    
+
                                     Spacer()
-                                    
-                                    // Wear pattern indicator
-                                    let wearDifference = max(innerTreadDepth, centerTreadDepth, outerTreadDepth) - min(innerTreadDepth, centerTreadDepth, outerTreadDepth)
-                                    
+
+                                    let wearDifference = (multiPointDepths.max() ?? 0) - (multiPointDepths.min() ?? 0)
+
                                     if wearDifference > 2.0 {
                                         VStack(alignment: .trailing, spacing: 2) {
                                             HStack(spacing: 4) {
@@ -295,7 +258,7 @@ struct AddMeasurementView: View {
                                             }
                                             .font(.caption)
                                             .foregroundStyle(.orange)
-                                            
+
                                             Text("Difference: \(String(format: "%.1f/32\"", wearDifference))")
                                                 .font(.caption2)
                                                 .foregroundStyle(.secondary)
@@ -307,11 +270,11 @@ struct AddMeasurementView: View {
                             .background(.quaternary.opacity(0.5))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        
+
                         Text("Uneven wear may indicate alignment issues, improper inflation, or suspension problems. Inner/outer wear suggests alignment issues; center wear suggests over-inflation.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        
+
                     } else {
                         Button {
                             showingCoinScan = true
@@ -570,6 +533,26 @@ struct AddMeasurementView: View {
             return .green
         }
     }
+
+    /// Label for a measurement point — index 0 is innermost.
+    private func pointLabel(index: Int, total: Int) -> String {
+        switch total {
+        case 2: return index == 0 ? "Inner Edge" : "Outer Edge"
+        case 3: return ["Inner Edge", "Center", "Outer Edge"][index]
+        case 4: return ["Inner Edge", "Mid-Inner", "Mid-Outer", "Outer Edge"][index]
+        case 5: return ["Inner Edge", "Mid-Inner", "Center", "Mid-Outer", "Outer Edge"][index]
+        default:
+            if index == 0 { return "Inner Edge" }
+            if index == total - 1 { return "Outer Edge" }
+            return "Point \(index + 1)"
+        }
+    }
+
+    private func pointIcon(index: Int, total: Int) -> String {
+        if index == 0 { return "arrow.left" }
+        if index == total - 1 { return "arrow.right" }
+        return "arrow.up.and.down"
+    }
     
     private func addMeasurement() {
         logger.info("Adding measurement: position=\(selectedPosition.rawValue), car=\(car.displayName), multiPoint=\(useMultipleMeasurements)")
@@ -591,9 +574,8 @@ struct AddMeasurementView: View {
         
         if useMultipleMeasurements {
             // Calculate average depth for the main measurement
-            let averageDepth = (innerTreadDepth + centerTreadDepth + outerTreadDepth) / 3.0
-            
-            // Create measurement with all three individual values stored
+            let averageDepth = multiPointDepths.reduce(0, +) / Double(multiPointDepths.count)
+
             measurement = TireMeasurement(
                 date: date,
                 treadDepth: averageDepth,
@@ -601,9 +583,7 @@ struct AddMeasurementView: View {
                 tire: tire,
                 notes: notes,
                 mileage: mileageValue,
-                innerDepth: innerTreadDepth,
-                centerDepth: centerTreadDepth,
-                outerDepth: outerTreadDepth
+                treadDepths: multiPointDepths
             )
         } else {
             // Single measurement mode

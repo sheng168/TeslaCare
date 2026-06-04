@@ -37,10 +37,8 @@ struct MeasurementRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if measurement.hasMultiplePoints,
-                   let inner = measurement.innerTreadDepth,
-                   let center = measurement.centerTreadDepth,
-                   let outer = measurement.outerTreadDepth {
+                if measurement.hasMultiplePoints {
+                    let depths = measurement.effectiveTreadDepths
 
                     VStack(alignment: .leading, spacing: 2) {
                         Divider()
@@ -52,34 +50,16 @@ struct MeasurementRowView: View {
                             .textCase(.uppercase)
 
                         HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Inner")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(String(format: "%.1f/32\"", inner))
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(treadColorForValue(inner))
-                            }
-
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Center")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(String(format: "%.1f/32\"", center))
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(treadColorForValue(center))
-                            }
-
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Outer")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(String(format: "%.1f/32\"", outer))
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(treadColorForValue(outer))
+                            ForEach(depths.indices, id: \.self) { index in
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(pointLabel(index: index, total: depths.count))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text(String(format: "%.1f/32\"", depths[index]))
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(treadColorForValue(depths[index]))
+                                }
                             }
                         }
 
@@ -157,6 +137,21 @@ struct MeasurementRowView: View {
         if value <= 2.0 { return .red }
         if value <= 4.0 { return .orange }
         return .green
+    }
+
+    /// Label for a measurement point given its index and the total point count.
+    /// Index 0 is innermost; the last index is outermost.
+    private func pointLabel(index: Int, total: Int) -> String {
+        switch total {
+        case 2: return index == 0 ? "Inner" : "Outer"
+        case 3: return ["Inner", "Center", "Outer"][index]
+        case 4: return ["Inner", "Mid-In", "Mid-Out", "Outer"][index]
+        case 5: return ["Inner", "Mid-In", "Center", "Mid-Out", "Outer"][index]
+        default:
+            if index == 0 { return "Inner" }
+            if index == total - 1 { return "Outer" }
+            return "\(index + 1)"
+        }
     }
 }
 

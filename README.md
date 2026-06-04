@@ -52,14 +52,17 @@ TezCare is a tire tread depth tracking application that helps car owners monitor
   - `tireHealthPercentage`: Overall tire health score
 
 ### TireMeasurement
-- **Properties**: date, treadDepth, position, notes, mileage, innerTreadDepth, centerTreadDepth, outerTreadDepth
+- **Properties**: date, treadDepth, position, notes, mileage, treadDepths
+  - `treadDepths: [Double]` — multi-point depths ordered innermost → outermost (empty for single-point measurements). Position is implied by array index: 0 is the innermost edge, last is the outermost.
+  - `innerTreadDepth`, `centerTreadDepth`, `outerTreadDepth`: deprecated, retained as read-only stored fields for one release for migration safety.
 - **Relationships**: Many-to-one with Car and Tire
 - **Computed Properties**:
   - `treadDepthFormatted`: Display-friendly format (e.g., "7.5/32\"")
   - `isWarning`: True if <= 4/32"
   - `isDanger`: True if <= 2/32"
-  - `hasMultiplePoints`: True if measurement includes inner, center, and outer values
-  - `calculatedAverage`: Average of the three measurement points
+  - `effectiveTreadDepths`: `treadDepths` if non-empty, else derived from the legacy fields
+  - `hasMultiplePoints`: True if there are two or more measurement points
+  - `calculatedAverage`: Average across all measurement points
   - `wearDifference`: Difference between highest and lowest measurement points
   - `hasUnevenWear`: True if wear difference exceeds 2/32"
   - `wearPatternDescription`: Diagnostic message about wear pattern (center wear, edge wear, alignment issues, etc.)

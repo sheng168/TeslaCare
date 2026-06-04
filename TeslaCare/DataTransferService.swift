@@ -117,6 +117,9 @@ struct MeasurementDTO: Codable {
     var positionRaw: String
     var notes: String
     var mileage: Int?
+    /// Multi-point depths ordered innermost → outermost. Preferred over the legacy
+    /// inner/center/outer fields, which remain decodable for one release for compatibility.
+    var treadDepths: [Double]?
     var innerTreadDepth: Double?
     var centerTreadDepth: Double?
     var outerTreadDepth: Double?
@@ -236,15 +239,17 @@ enum DataTransferService {
         }
 
         let measurementDTOs: [MeasurementDTO] = (car.measurements ?? []).map { m in
-            MeasurementDTO(
+            let depths = m.effectiveTreadDepths
+            return MeasurementDTO(
                 date: m.date,
                 treadDepth: m.treadDepth,
                 positionRaw: m.positionRaw,
                 notes: m.notes,
                 mileage: m.mileage,
-                innerTreadDepth: m.innerTreadDepth,
-                centerTreadDepth: m.centerTreadDepth,
-                outerTreadDepth: m.outerTreadDepth,
+                treadDepths: depths.isEmpty ? nil : depths,
+                innerTreadDepth: nil,
+                centerTreadDepth: nil,
+                outerTreadDepth: nil,
                 tireLocalID: m.tire.flatMap { tireIDs[$0.persistentModelID] },
                 photos: excludePhotos ? [] : photoDTOs(m.photos?.map { ($0.data, $0.sortIndex, $0.createdAt) })
             )
@@ -376,10 +381,12 @@ enum DataTransferService {
                 let position = TirePosition(rawValue: m.positionRaw) ?? .frontLeft
                 let tire = resolveTire(localID: m.tireLocalID, position: position, car: car,
                                        tireMap: tireMap, tiresByPosition: &tiresByPosition, context: context)
+                let depths = m.treadDepths
+                    ?? [m.innerTreadDepth, m.centerTreadDepth, m.outerTreadDepth].compactMap { $0 }
                 let measurement = TireMeasurement(
                     date: m.date, treadDepth: m.treadDepth, position: position, tire: tire,
                     notes: m.notes, mileage: m.mileage,
-                    innerDepth: m.innerTreadDepth, centerDepth: m.centerTreadDepth, outerDepth: m.outerTreadDepth)
+                    treadDepths: depths.count >= 2 ? depths : [])
                 measurement.car = car
                 context.insert(measurement)
                 for p in m.photos {
@@ -483,9 +490,11 @@ enum DataTransferService {
     // MARK: CSV export
 
     /// Column order for the measurements CSV. Import looks columns up by name, so order is not load-bearing.
+    /// `Tread Depths` is a pipe-separated list of values ordered innermost → outermost.
+    /// `Inner`/`Center`/`Outer` are retained for one release for legacy importers.
     private static let csvColumns = [
         "Car Name", "VIN", "Date", "Position", "Tire Brand", "Tire Model", "Tire Size",
-        "Tread Depth (32nds)", "Inner", "Center", "Outer", "Mileage", "Notes"
+        "Tread Depth (32nds)", "Tread Depths", "Inner", "Center", "Outer", "Mileage", "Notes"
     ]
 
     @MainActor
@@ -498,6 +507,8 @@ enum DataTransferService {
             let measurements = (car.measurements ?? []).sorted { $0.date < $1.date }
             for m in measurements {
                 let tire = m.tire
+                let depths = m.effectiveTreadDepths
+                let depthsField = depths.map { String(format: "%.2f", $0) }.joined(separator: "|")
                 let fields = [
                     car.displayName,
                     car.vin ?? "",
@@ -507,9 +518,10 @@ enum DataTransferService {
                     tire?.modelName ?? "",
                     tire?.size ?? "",
                     String(format: "%.2f", m.treadDepth),
-                    m.innerTreadDepth.map { String(format: "%.2f", $0) } ?? "",
-                    m.centerTreadDepth.map { String(format: "%.2f", $0) } ?? "",
-                    m.outerTreadDepth.map { String(format: "%.2f", $0) } ?? "",
+                    depthsField,
+                    "",
+                    "",
+                    "",
                     m.mileage.map(String.init) ?? "",
                     m.notes
                 ]
@@ -595,13 +607,19 @@ enum DataTransferService {
             }
             tiresByCar[ObjectIdentifier(car)] = tiresForCar
 
+            let depths: [Double] = {
+                let raw = field(row, "tread depths")
+                if !raw.isEmpty {
+                    return raw.split(separator: "|").compactMap { Double($0) }
+                }
+                return [field(row, "inner"), field(row, "center"), field(row, "outer")]
+                    .compactMap { Double($0) }
+            }()
             let measurement = TireMeasurement(
                 date: date, treadDepth: depth, position: position, tire: tire,
                 notes: field(row, "notes"),
                 mileage: Int(field(row, "mileage")),
-                innerDepth: Double(field(row, "inner")),
-                centerDepth: Double(field(row, "center")),
-                outerDepth: Double(field(row, "outer")))
+                treadDepths: depths.count >= 2 ? depths : [])
             measurement.car = car
             context.insert(measurement)
             summary.measurements += 1

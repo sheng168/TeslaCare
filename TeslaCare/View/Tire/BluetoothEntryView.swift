@@ -270,10 +270,6 @@ struct BluetoothEntryView: View {
                 modelContext.insert(tire)
             }
 
-            let inner:  Double? = pointCount >= 2 ? readings.first : nil
-            let center: Double? = pointCount == 3 ? readings[1] : (pointCount == 5 ? readings[2] : nil)
-            let outer:  Double? = pointCount >= 2 ? readings.last : nil
-
             let notes = pointCount > 1
                 ? (0..<rawReadings.count).map {
                     "\(pointLabel($0, total: pointCount)): \(unit.format(rawReadings[$0])) \(unit.rawValue)"
@@ -286,9 +282,7 @@ struct BluetoothEntryView: View {
                 position: position,
                 tire: tire,
                 notes: notes,
-                innerDepth: inner,
-                centerDepth: center,
-                outerDepth: outer
+                treadDepths: pointCount > 1 ? readings : []
             )
             m.car = car
             modelContext.insert(m)

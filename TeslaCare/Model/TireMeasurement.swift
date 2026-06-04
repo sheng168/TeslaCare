@@ -17,100 +17,113 @@ final class TireMeasurement {
     var notes: String = ""
     var mileage: Int?               // miles
 
-    // Multiple measurement points for uneven wear detection
-    var innerTreadDepth: Double?    // 32nds of an inch — inner edge
-    var centerTreadDepth: Double?   // 32nds of an inch — center
-    var outerTreadDepth: Double?    // 32nds of an inch — outer edge
+    /// Multi-point depths across the tire width, ordered innermost → outermost.
+    /// Empty when the measurement is a single average reading.
+    var treadDepths: [Double] = []
+
+    // MARK: - Deprecated multi-point fields
+    // Retained as stored properties for one release so existing rows (and JSON/CSV exports
+    // produced before `treadDepths` existed) continue to load. Treat as read-only — new
+    // writes should set `treadDepths` instead.
+    var innerTreadDepth: Double?
+    var centerTreadDepth: Double?
+    var outerTreadDepth: Double?
 
     @Relationship(deleteRule: .cascade, inverse: \TirePhoto.measurement)
     var photos: [TirePhoto]?
 
     var car: Car?
     var tire: Tire? // Non-optional - every measurement must be associated with a tire
-    
-    init(date: Date, treadDepth: Double, position: TirePosition, tire: Tire, notes: String = "", mileage: Int? = nil, innerDepth: Double? = nil, centerDepth: Double? = nil, outerDepth: Double? = nil) {
+
+    init(date: Date, treadDepth: Double, position: TirePosition, tire: Tire,
+         notes: String = "", mileage: Int? = nil, treadDepths: [Double] = []) {
         self.date = date
         self.treadDepth = treadDepth
         self.positionRaw = position.rawValue
         self.tire = tire
         self.notes = notes
         self.mileage = mileage
-        self.innerTreadDepth = innerDepth
-        self.centerTreadDepth = centerDepth
-        self.outerTreadDepth = outerDepth
+        self.treadDepths = treadDepths
     }
-    
+
     var position: TirePosition {
         get { TirePosition(rawValue: positionRaw) ?? .frontLeft }
         set { positionRaw = newValue.rawValue }
     }
-    
+
     var treadDepthFormatted: String {
         String(format: "%.1f/32\"", treadDepth)
     }
-    
+
     var isWarning: Bool {
         treadDepth <= 4.0
     }
-    
+
     var isDanger: Bool {
         treadDepth <= 2.0
     }
-    
+
     // MARK: - Multi-point Measurement Properties
-    
-    /// Returns true if this measurement has multiple data points
+
+    /// The effective array of depths, preferring the new `treadDepths` array and falling
+    /// back to the legacy inner/center/outer fields for records written before that field
+    /// existed. Always ordered innermost → outermost.
+    var effectiveTreadDepths: [Double] {
+        if !treadDepths.isEmpty { return treadDepths }
+        let legacy = [innerTreadDepth, centerTreadDepth, outerTreadDepth].compactMap { $0 }
+        return legacy.count == 3 ? legacy : []
+    }
+
+    /// Returns true if this measurement has multiple data points.
     var hasMultiplePoints: Bool {
-        innerTreadDepth != nil && centerTreadDepth != nil && outerTreadDepth != nil
+        effectiveTreadDepths.count >= 2
     }
-    
-    /// Calculate average from the three measurement points
+
+    /// Calculate average from the measurement points.
     var calculatedAverage: Double? {
-        guard let inner = innerTreadDepth,
-              let center = centerTreadDepth,
-              let outer = outerTreadDepth else {
-            return nil
-        }
-        return (inner + center + outer) / 3.0
+        let depths = effectiveTreadDepths
+        guard !depths.isEmpty else { return nil }
+        return depths.reduce(0, +) / Double(depths.count)
     }
-    
-    /// Difference between highest and lowest measurement points
+
+    /// Difference between highest and lowest measurement points.
     var wearDifference: Double? {
-        guard let inner = innerTreadDepth,
-              let center = centerTreadDepth,
-              let outer = outerTreadDepth else {
-            return nil
-        }
-        let max = max(inner, center, outer)
-        let min = min(inner, center, outer)
-        return max - min
+        let depths = effectiveTreadDepths
+        guard let lo = depths.min(), let hi = depths.max(), depths.count >= 2 else { return nil }
+        return hi - lo
     }
-    
-    /// Returns true if wear difference exceeds threshold (2/32")
+
+    /// Returns true if wear difference exceeds threshold (2/32").
     var hasUnevenWear: Bool {
         guard let difference = wearDifference else { return false }
         return difference > 2.0
     }
-    
-    /// Diagnostic message about wear pattern
+
+    /// Diagnostic message about wear pattern. Inner = index 0; outer = last index.
     var wearPatternDescription: String? {
-        guard let inner = innerTreadDepth,
-              let center = centerTreadDepth,
-              let outer = outerTreadDepth else {
-            return nil
-        }
-        
-        // Check for different wear patterns
-        if center < inner && center < outer {
-            return "Center wear detected - may indicate over-inflation"
-        } else if inner < center && inner < outer {
+        let depths = effectiveTreadDepths
+        guard depths.count >= 3 else { return nil }
+
+        guard let minIndex = depths.indices.min(by: { depths[$0] < depths[$1] }) else { return nil }
+        let lastIndex = depths.count - 1
+        let inner = depths.first!
+        let outer = depths.last!
+        let edgeAvg = (inner + outer) / 2.0
+        let middleAvg = depths[1..<lastIndex].reduce(0, +) / Double(lastIndex - 1)
+
+        switch minIndex {
+        case 0:
             return "Inner edge wear - may indicate alignment or camber issues"
-        } else if outer < center && outer < inner {
+        case lastIndex:
             return "Outer edge wear - may indicate alignment or camber issues"
-        } else if (inner < center && outer < center) {
-            return "Edge wear - may indicate under-inflation"
-        } else {
-            return "Even wear pattern"
+        default:
+            if depths[minIndex] < inner && depths[minIndex] < outer {
+                return "Center wear detected - may indicate over-inflation"
+            } else if edgeAvg < middleAvg {
+                return "Edge wear - may indicate under-inflation"
+            } else {
+                return "Even wear pattern"
+            }
         }
     }
 }
