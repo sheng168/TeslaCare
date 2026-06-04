@@ -32,7 +32,7 @@ struct MainTabView: View {
 
             PublicCarsView()
                 .tabItem {
-                    Label("Community", systemImage: "globe")
+                    Label("Rental/Used", systemImage: "globe")
                 }
                 .tag(2)
 

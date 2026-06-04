@@ -109,11 +109,11 @@ struct PublicCarsView: View {
         NavigationStack {
             Group {
                 if service.isLoading {
-                    ProgressView("Loading community cars…")
+                    ProgressView("Loading rental/used cars…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if displayedCars.isEmpty {
                     ContentUnavailableView(
-                        filters.isActive ? "No Matching Cars" : "No Community Cars",
+                        filters.isActive ? "No Matching Cars" : "No Rental/Used Cars",
                         systemImage: "globe",
                         description: Text(filters.isActive ? "Try adjusting your filters." : "Be the first to publish your car.")
                     )
@@ -131,7 +131,7 @@ struct PublicCarsView: View {
                     }
                 }
             }
-            .navigationTitle("Community")
+            .navigationTitle("Rental/Used")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

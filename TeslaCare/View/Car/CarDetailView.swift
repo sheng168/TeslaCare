@@ -105,12 +105,12 @@ struct CarDetailView: View {
                     .disabled(isUnpublishing)
                 } else {
                     Button(action: { showingPublishSheet = true }) {
-                        Label("Publish to Community", systemImage: "globe")
+                        Label("Publish to Rental/Used", systemImage: "globe")
                     }
                 }
             }
         }
-        .alert("Unpublish from Community?", isPresented: $showingUnpublishConfirm) {
+        .alert("Unpublish from Rental/Used?", isPresented: $showingUnpublishConfirm) {
             Button("Unpublish", role: .destructive) {
                 isUnpublishing = true
                 Task {
