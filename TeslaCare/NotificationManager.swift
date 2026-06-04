@@ -61,6 +61,37 @@ enum NotificationManager {
             }
     }
 
+    // MARK: - Reschedule
+
+    /// Cancels all pending notifications and re-schedules them based on the user's current
+    /// settings in `UserDefaults`. Called whenever the master toggle flips on, or when a
+    /// setting that affects an active reminder (e.g. `warningThreshold`) changes.
+    static func rescheduleAll(cars: [Car], tires: [Tire]) {
+        let defaults = UserDefaults.standard
+        let center = UNUserNotificationCenter.current()
+        center.removeAllPendingNotificationRequests()
+
+        let enabled = defaults.object(forKey: "showNotifications") as? Bool ?? true
+        guard enabled else {
+            logger.info("Master notifications disabled — cleared all pending")
+            return
+        }
+
+        cars.forEach { scheduleUpdateReminder(for: $0) }
+
+        if defaults.object(forKey: "notifyWeeklyCheck") as? Bool ?? false {
+            scheduleWeeklyTireCheck()
+        }
+        if defaults.object(forKey: "notifyLowTread") as? Bool ?? true {
+            let threshold = defaults.object(forKey: "warningThreshold") as? Double ?? 4.0
+            scheduleLowTreadAlerts(for: tires, warningThreshold: threshold)
+        }
+        if defaults.object(forKey: "notifyRotationDue") as? Bool ?? true {
+            let interval = defaults.object(forKey: "rotationInterval") as? Double ?? 5000.0
+            scheduleRotationReminders(for: cars, intervalMiles: interval)
+        }
+    }
+
     // MARK: - Weekly Tire Check
 
     static func scheduleWeeklyTireCheck() {

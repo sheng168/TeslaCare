@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var showingDeleteConfirmation = false
     @State private var iCloudStatus: CKAccountStatus = .couldNotDetermine
     @Query private var cars: [Car]
+    @Query private var tires: [Tire]
     @Query private var credentials: [TeslaCredential]
 
     private var mostRecentUpdate: Date? {
@@ -95,10 +96,8 @@ struct SettingsView: View {
                         .onChange(of: showNotifications) { _, enabled in
                             if enabled {
                                 NotificationManager.requestPermission()
-                                cars.forEach { NotificationManager.scheduleUpdateReminder(for: $0) }
-                            } else {
-                                UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
                             }
+                            NotificationManager.rescheduleAll(cars: cars, tires: tires)
                         }
 
                     if showNotifications {
@@ -132,6 +131,9 @@ struct SettingsView: View {
 
                         HStack {
                             Slider(value: $warningThreshold, in: 3.0...6.0, step: 0.5)
+                                .onChange(of: warningThreshold) { _, _ in
+                                    NotificationManager.rescheduleAll(cars: cars, tires: tires)
+                                }
                             Text(String(format: "%.1f/32\"", warningThreshold))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
