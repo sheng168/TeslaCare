@@ -168,9 +168,41 @@ struct MeasurementRowView: View {
     good.car = car
     container.mainContext.insert(good)
 
-    let warning = TireMeasurement(date: Date().addingTimeInterval(-86400 * 30), treadDepth: 3.5, position: .rearLeft, tire: tire, notes: "Uneven wear noted", mileage: 10500)
-    warning.car = car
-    container.mainContext.insert(warning)
+    let threePoint = TireMeasurement(
+        date: Date().addingTimeInterval(-86400 * 14),
+        treadDepth: 6.2,
+        position: .frontRight,
+        tire: tire,
+        notes: "",
+        mileage: 11500,
+        treadDepths: [5.5, 6.5, 6.5]
+    )
+    threePoint.car = car
+    container.mainContext.insert(threePoint)
+
+    let unevenWarning = TireMeasurement(
+        date: Date().addingTimeInterval(-86400 * 30),
+        treadDepth: 3.5,
+        position: .rearLeft,
+        tire: tire,
+        notes: "Uneven wear noted",
+        mileage: 10500,
+        treadDepths: [2.0, 3.5, 5.0]
+    )
+    unevenWarning.car = car
+    container.mainContext.insert(unevenWarning)
+
+    let fivePoint = TireMeasurement(
+        date: Date().addingTimeInterval(-86400 * 60),
+        treadDepth: 4.6,
+        position: .rearRight,
+        tire: tire,
+        notes: "",
+        mileage: 9800,
+        treadDepths: [3.5, 4.2, 5.0, 5.2, 5.1]
+    )
+    fivePoint.car = car
+    container.mainContext.insert(fivePoint)
 
     let danger = TireMeasurement(date: Date().addingTimeInterval(-86400 * 90), treadDepth: 1.5, position: .rearRight, tire: tire, notes: "", mileage: 9000)
     danger.car = car
@@ -178,7 +210,9 @@ struct MeasurementRowView: View {
 
     return List {
         MeasurementRowView(measurement: good)
-        MeasurementRowView(measurement: warning)
+        MeasurementRowView(measurement: threePoint)
+        MeasurementRowView(measurement: unevenWarning)
+        MeasurementRowView(measurement: fivePoint)
         MeasurementRowView(measurement: danger)
     }
     .modelContainer(container)
