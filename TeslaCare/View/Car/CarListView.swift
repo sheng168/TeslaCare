@@ -49,7 +49,7 @@ struct CarListView: View {
             List {
                 ForEach(sortedCars) { car in
                     NavigationLink {
-                        CarDetailPagerView(cars: sortedCars, initialCar: car)
+                        CarDetailView(car: car)
                     } label: {
                         CarRowView(car: car)
                     }
