@@ -248,7 +248,9 @@ public struct TeslaAuthView<Manager: TeslaAuthenticating, VehicleRow: View, Logi
         }
 
         session.presentationContextProvider = provider
-        session.prefersEphemeralWebBrowserSession = false
+        // Ephemeral session — don't share cookies with Safari, so each sign-in is a fresh
+        // login (lets the user switch Tesla accounts after signing out).
+        session.prefersEphemeralWebBrowserSession = true
         session.start()
         authSession = session
     }

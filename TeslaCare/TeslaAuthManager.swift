@@ -25,6 +25,12 @@ class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
 
     @Published var selectedRegion: TeslaAPI.Region
 
+    // Optional OAuth scopes the user can toggle in the login sheet. `openId` and
+    // `offlineAccess` are always granted because they're required for the OAuth flow itself.
+    @AppStorage("teslaScope.vehicleDeviceData") var scopeVehicleDeviceData = true
+    @AppStorage("teslaScope.vehicleCmds") var scopeVehicleCmds = true
+    @AppStorage("teslaScope.vehicleLocation") var scopeVehicleLocation = true
+
     private var api: TeslaSwift?
     private let clientID = "b7b3546b95f7-453c-ac19-5efbd8d3bd35"
     private let clientSecret = "ta-secret.6zpdiNudRJvDZ-P_"
@@ -47,6 +53,23 @@ class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
         logger.info("selectRegion: switched to \(region.rawValue)")
     }
 
+    /// Rebuilds the API client so the next sign-in uses the current scope toggles.
+    /// Already-issued access tokens keep whatever scopes Tesla granted at login; users
+    /// must sign out and back in for changes to take effect.
+    func applyScopeChanges() {
+        setupAPI()
+        objectWillChange.send()
+        logger.info("applyScopeChanges: scopes updated")
+    }
+
+    private var selectedScopes: [TeslaAPI.Scope] {
+        var scopes: [TeslaAPI.Scope] = [.openId, .offlineAccess]
+        if scopeVehicleDeviceData { scopes.append(.vehicleDeviceData) }
+        if scopeVehicleCmds { scopes.append(.vehicleCmds) }
+        if scopeVehicleLocation { scopes.append(.vehicleLocation) }
+        return scopes
+    }
+
     /// Called once the SwiftData ModelContext is available (from TeslaCareApp.onAppear).
     func setup(context: ModelContext) {
         guard modelContext == nil else {
@@ -59,13 +82,15 @@ class TeslaAuthManager: ObservableObject, TeslaAuthenticating {
     }
 
     private func setupAPI() {
-        logger.info("setupAPI: initializing TeslaSwift fleet API, region=\(self.selectedRegion.rawValue)")
+        let scopes = selectedScopes
+        let scopeList = scopes.map(\.rawValue).joined(separator: ",")
+        logger.info("setupAPI: initializing TeslaSwift fleet API, region=\(self.selectedRegion.rawValue), scopes=\(scopeList)")
         api = TeslaSwift(teslaAPI: .fleetAPI(
             region: selectedRegion,
             clientID: clientID,
             clientSecret: clientSecret,
             redirectURI: redirectURI,
-            scopes: [.openId, .offlineAccess, .vehicleDeviceData, .vehicleCmds, .vehicleLocation]
+            scopes: scopes
         ))
         api?.debuggingEnabled = true
     }
@@ -400,12 +425,53 @@ struct TeslaAuthSheet: View {
             signInDescription: "Sign in with your Tesla account to automatically sync your vehicle information and tire data.",
             onVehiclesLoaded: { authManager.syncCars(into: modelContext) },
             loginExtraContent: {
-                TeslaRegionPicker(authManager: authManager)
+                VStack(spacing: 16) {
+                    TeslaRegionPicker(authManager: authManager)
+                    TeslaScopePicker(authManager: authManager)
+                }
             }
         ) { vehicle in
             TeslaConnectedVehicleRow(vehicle: vehicle)
                 .environmentObject(authManager)
         }
+    }
+}
+
+private struct TeslaScopePicker: View {
+    @ObservedObject var authManager: TeslaAuthManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Permissions", systemImage: "lock.shield")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 0) {
+                Toggle("Vehicle Data", isOn: Binding(
+                    get: { authManager.scopeVehicleDeviceData },
+                    set: { authManager.scopeVehicleDeviceData = $0; authManager.applyScopeChanges() }
+                ))
+                Divider()
+                Toggle("Vehicle Commands", isOn: Binding(
+                    get: { authManager.scopeVehicleCmds },
+                    set: { authManager.scopeVehicleCmds = $0; authManager.applyScopeChanges() }
+                ))
+                Divider()
+                Toggle("Vehicle Location", isOn: Binding(
+                    get: { authManager.scopeVehicleLocation },
+                    set: { authManager.scopeVehicleLocation = $0; authManager.applyScopeChanges() }
+                ))
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 14)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+
+            Text("Changes apply at the next sign-in.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal)
     }
 }
 
