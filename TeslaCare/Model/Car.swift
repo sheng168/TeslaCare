@@ -59,6 +59,9 @@ final class Car {
 
     @Relationship(deleteRule: .cascade, inverse: \NearbyCharger.car)
     var nearbyChargers: [NearbyCharger]?
+
+    @Relationship(deleteRule: .cascade, inverse: \CarPhoto.car)
+    var photos: [CarPhoto]?
     
     init(name: String, make: String, model: String, year: Int, dateAdded: Date = Date()) {
         self.name = name

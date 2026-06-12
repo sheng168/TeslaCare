@@ -39,6 +39,7 @@ struct CarDetailView: View {
     @AppStorage("detail.airFilterExpanded") private var airFilterExpanded = true
     @AppStorage("detail.repairExpanded") private var repairExpanded = true
     @AppStorage("detail.measurementsExpanded") private var measurementsExpanded = true
+    @AppStorage("detail.photosExpanded") private var photosExpanded = true
 
     var sortedMeasurements: [TireMeasurement] {
         (car.measurements ?? []).sorted { $0.date > $1.date }
@@ -48,6 +49,8 @@ struct CarDetailView: View {
         ScrollView {
             VStack(spacing: 20) {
                 carHeaderSection
+
+                carPhotosSection
 
                 tireGridSection
                 actionButtonsSection
@@ -171,6 +174,43 @@ struct CarDetailView: View {
     }
 
     // MARK: - Sections
+
+    @ViewBuilder
+    private var carPhotosSection: some View {
+        VStack(spacing: 0) {
+            DisclosureGroup(isExpanded: $photosExpanded) {
+                CarPhotoStrip(
+                    images: sortedPhotos.compactMap { UIImage(data: $0.data) },
+                    onAdd: addPhoto,
+                    onDelete: deletePhoto
+                )
+                .padding(.top, 4)
+            } label: {
+                Text("Photos")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var sortedPhotos: [CarPhoto] {
+        (car.photos ?? []).sorted { $0.sortIndex < $1.sortIndex }
+    }
+
+    private func addPhoto(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.7) else { return }
+        let nextIndex = (sortedPhotos.last?.sortIndex ?? -1) + 1
+        let photo = CarPhoto(data: data, sortIndex: nextIndex)
+        photo.car = car
+        modelContext.insert(photo)
+    }
+
+    private func deletePhoto(at index: Int) {
+        let photos = sortedPhotos
+        guard photos.indices.contains(index) else { return }
+        modelContext.delete(photos[index])
+    }
 
     @ViewBuilder
     private var mileageChartSection: some View {

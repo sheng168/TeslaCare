@@ -12,5 +12,11 @@
 	<array>
 		<string>CloudKit</string>
 	</array>
+	<key>com.apple.developer.private-cloud-compute</key>
+	<true/>
+	<key>com.apple.developer.sensitivecontentanalysis.client</key>
+	<array>
+		<string>analysis</string>
+	</array>
 </dict>
 </plist>

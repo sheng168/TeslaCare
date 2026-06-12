@@ -11,6 +11,8 @@ private let logger = Logger(subsystem: "com.teslacare", category: "ImageProcessi
 struct ImagePickerView: UIViewControllerRepresentable {
     let sourceType: UIImagePickerController.SourceType
     @Binding var selectedImage: UIImage?
+    /// Shows the tire-rim viewfinder guide. Disable for non-tire captures (e.g. car photos).
+    var showTireOverlay: Bool = true
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
@@ -18,7 +20,7 @@ struct ImagePickerView: UIViewControllerRepresentable {
         picker.sourceType = sourceType
         picker.delegate = context.coordinator
 
-        if sourceType == .camera {
+        if sourceType == .camera && showTireOverlay {
             let overlay = UIHostingController(rootView: TireCameraOverlay())
             if let screenBounds = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds {
                 overlay.view.frame = screenBounds

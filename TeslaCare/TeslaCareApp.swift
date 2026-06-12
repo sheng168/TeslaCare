@@ -20,6 +20,7 @@ struct TeslaCareApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Car.self,
+            CarPhoto.self,
             Tire.self,
             TireMeasurement.self,
             TirePhoto.self,

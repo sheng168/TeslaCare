@@ -22,6 +22,7 @@ struct AddCarView: View {
     @State private var mileageText = ""
     @State private var vin = ""
     @State private var showingVINScanner = false
+    @State private var photos: [UIImage] = []
 
     var body: some View {
         NavigationStack {
@@ -81,6 +82,14 @@ struct AddCarView: View {
                     }
                 }
                 
+                Section("Photos") {
+                    CarPhotoStrip(
+                        images: photos,
+                        onAdd: { photos.append($0) },
+                        onDelete: { photos.remove(at: $0) }
+                    )
+                }
+
                 Section {
                     Text("If you don't provide a name, the car will be identified as \"\(year, format: .number.grouping(.never)) \(make.isEmpty ? "Make" : make) \(model.isEmpty ? "Model" : model)\"")
                         .font(.caption)
@@ -304,7 +313,14 @@ struct AddCarView: View {
             modelContext.insert(reading)
             logger.info("Added initial mileage reading: \(miles) mi")
         }
-        logger.info("Car added successfully: \(newCar.displayName)")
+        for (index, image) in photos.enumerated() {
+            if let data = image.jpegData(compressionQuality: 0.7) {
+                let photo = CarPhoto(data: data, sortIndex: index)
+                photo.car = newCar
+                modelContext.insert(photo)
+            }
+        }
+        logger.info("Car added successfully: \(newCar.displayName) with \(photos.count) photo(s)")
         dismiss()
     }
 }
