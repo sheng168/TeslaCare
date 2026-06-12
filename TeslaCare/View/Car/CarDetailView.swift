@@ -69,6 +69,11 @@ struct CarDetailView: View {
         }
         .navigationTitle(car.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: car.photos?.count ?? 0) {
+            if #available(iOS 27, *) {
+                await labelPendingPhotos()
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingAddMeasurement = true }) {
@@ -180,7 +185,9 @@ struct CarDetailView: View {
         VStack(spacing: 0) {
             DisclosureGroup(isExpanded: $photosExpanded) {
                 CarPhotoStrip(
-                    images: sortedPhotos.compactMap { UIImage(data: $0.data) },
+                    items: sortedPhotos.compactMap { photo in
+                        UIImage(data: photo.data).map { CarPhotoItem(image: $0, caption: photo.label) }
+                    },
                     onAdd: addPhoto,
                     onDelete: deletePhoto
                 )
@@ -204,6 +211,14 @@ struct CarDetailView: View {
         let photo = CarPhoto(data: data, sortIndex: nextIndex)
         photo.car = car
         modelContext.insert(photo)
+    }
+
+    /// Labels any photos that don't yet have a FoundationModels part/side label.
+    @available(iOS 27, *)
+    private func labelPendingPhotos() async {
+        for photo in sortedPhotos where photo.part == nil {
+            await CarPhotoLabeler.applyLabel(to: photo)
+        }
     }
 
     private func deletePhoto(at index: Int) {

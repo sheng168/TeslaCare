@@ -49,23 +49,12 @@ struct CarPhotoStrip: View {
                                 .offset(x: 6, y: -6)
                             }
 
-                        if let caption = items[index].caption {
-                            Text(caption)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                                .frame(width: 100)
-                        } else {
-                            HStack(spacing: 4) {
-                                ProgressView()
-                                    .controlSize(.mini)
-                                Text("Labeling…")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
+                        Text(items[index].caption ?? " ")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2, reservesSpace: true)
                             .frame(width: 100)
-                        }
                     }
                 }
 

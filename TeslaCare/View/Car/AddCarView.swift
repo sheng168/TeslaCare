@@ -23,6 +23,7 @@ struct AddCarView: View {
     @State private var vin = ""
     @State private var showingVINScanner = false
     @State private var photos: [UIImage] = []
+    @State private var photoLabels: [ObjectIdentifier: CarPartLabel] = [:]
 
     var body: some View {
         NavigationStack {
@@ -84,9 +85,9 @@ struct AddCarView: View {
                 
                 Section("Photos") {
                     CarPhotoStrip(
-                        images: photos,
-                        onAdd: { photos.append($0) },
-                        onDelete: { photos.remove(at: $0) }
+                        items: photos.map { CarPhotoItem(image: $0, caption: photoLabels[ObjectIdentifier($0)]?.caption) },
+                        onAdd: addPhoto,
+                        onDelete: deletePhoto
                     )
                 }
 
@@ -302,6 +303,24 @@ struct AddCarView: View {
         return digitYears[char]
     }
 
+    private func addPhoto(_ image: UIImage) {
+        photos.append(image)
+        // Label the part/side on-device as the photo is added (iOS 27+).
+        if #available(iOS 27, *) {
+            Task {
+                if let label = await CarPhotoLabeler.label(image) {
+                    photoLabels[ObjectIdentifier(image)] = label
+                }
+            }
+        }
+    }
+
+    private func deletePhoto(at index: Int) {
+        guard photos.indices.contains(index) else { return }
+        let image = photos.remove(at: index)
+        photoLabels[ObjectIdentifier(image)] = nil
+    }
+
     private func addCar() {
         logger.info("Adding car: \(year) \(make) \(model)")
         let newCar = Car(name: name, make: make, model: model, year: year)
@@ -317,6 +336,10 @@ struct AddCarView: View {
             if let data = image.jpegData(compressionQuality: 0.7) {
                 let photo = CarPhoto(data: data, sortIndex: index)
                 photo.car = newCar
+                if let label = photoLabels[ObjectIdentifier(image)] {
+                    photo.part = label.part
+                    photo.side = label.side
+                }
                 modelContext.insert(photo)
             }
         }
