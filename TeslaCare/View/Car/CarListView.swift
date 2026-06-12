@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import CoreLocation
 import OSLog
 
 private let logger = Logger(subsystem: "com.teslacare", category: "CarList")
@@ -17,10 +18,12 @@ enum CarSortOrder: String, CaseIterable {
     case name = "Name"
     case mileage = "Mileage"
     case batteryLevel = "Battery"
+    case distanceFromUser = "Distance"
 }
 
 struct CarListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(LocationManager.self) private var locationManager
     @EnvironmentObject private var authManager: TeslaAuthManager
     @Query private var cars: [Car]
     @State private var showingAddCar = false
@@ -35,7 +38,20 @@ struct CarListView: View {
         case .name:         return cars.sorted { $0.displayName < $1.displayName }
         case .mileage:      return cars.sorted { ($0.mileage ?? 0) > ($1.mileage ?? 0) }
         case .batteryLevel: return cars.sorted { ($0.batteryLevel ?? -1) > ($1.batteryLevel ?? -1) }
+        case .distanceFromUser:
+            return cars.sorted {
+                (distance(to: $0) ?? .greatestFiniteMagnitude) < (distance(to: $1) ?? .greatestFiniteMagnitude)
+            }
         }
+    }
+
+    /// Distance in meters from the user's current location to the car, or `nil`
+    /// if either location is unavailable. Cars without a location sort last.
+    private func distance(to car: Car) -> Double? {
+        guard let userLocation = locationManager.userLocation,
+              let latitude = car.latitude,
+              let longitude = car.longitude else { return nil }
+        return userLocation.distance(from: CLLocation(latitude: latitude, longitude: longitude))
     }
 
     private var lastSyncedText: String? {
