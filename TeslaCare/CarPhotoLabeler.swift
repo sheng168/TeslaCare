@@ -80,7 +80,11 @@ enum CarPhotoLabeler {
             logger.info("System language model unavailable; skipping photo labeling")
             return nil
         }
-        let session = LanguageModelSession(model: PrivateCloudComputeLanguageModel(),
+        let model =
+            PrivateCloudComputeLanguageModel()
+//            SystemLanguageModel()
+        
+        let session = LanguageModelSession(model: model,
             instructions: """
             You identify cars in photos. Given a photo of a car, name the specific part \
             or area of the car shown and which side of the car the photo represents. \
@@ -92,8 +96,10 @@ enum CarPhotoLabeler {
                 "Identify the car part and the side of the car shown in this photo."
                 Attachment(image)
             }
-            let part = response.content.part.trimmingCharacters(in: .whitespacesAndNewlines)
-            let label = CarPartLabel(part: part, side: response.content.side.displayName)
+            let label_ = response.content
+            let part = label_.part.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            let label = CarPartLabel(part: part, side: label_.side.displayName)
             logger.info("Labeled car photo: \(label.caption, privacy: .public)")
             return label
         } catch {

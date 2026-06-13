@@ -39,6 +39,13 @@ struct CarPhotoStrip: View {
     @State private var showingCamera = false
     @State private var showingPhotoSource = false
     @State private var showingPhotoPicker = false
+    /// The photo shown full-screen, if any.
+    @State private var fullScreenPhoto: IndexedPhoto?
+
+    /// Wraps a tapped photo's index so it can drive an `item`-based presentation.
+    private struct IndexedPhoto: Identifiable {
+        let id: Int
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -122,6 +129,10 @@ struct CarPhotoStrip: View {
         }
         .photosPicker(isPresented: $showingPhotoPicker, selection: $photoPickerItems,
                       maxSelectionCount: 10, matching: .images)
+        .fullScreenCover(item: $fullScreenPhoto) { photo in
+            CarPhotoFullScreenView(image: items[photo.id].image,
+                                   caption: items[photo.id].caption)
+        }
     }
 
     // MARK: - Thumbnails
@@ -134,6 +145,10 @@ struct CarPhotoStrip: View {
                 .scaledToFill()
                 .frame(width: 100, height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .contentShape(RoundedRectangle(cornerRadius: 8))
+                .onTapGesture {
+                    fullScreenPhoto = IndexedPhoto(id: index)
+                }
                 .overlay(alignment: .topTrailing) {
                     Button {
                         onDelete(index)
@@ -224,7 +239,7 @@ struct CarPhotoStrip: View {
         guard let center, let coordinate = items[index].coordinate else { return nil }
         let from = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         let to = CLLocation(latitude: center.latitude, longitude: center.longitude)
-        return String(format: "Δ %.0f m", from.distance(from: to))
+        return String(format: "Δ %.1f m", from.distance(from: to))
     }
     #endif
 }
