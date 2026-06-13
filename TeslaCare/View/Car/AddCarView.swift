@@ -24,6 +24,7 @@ struct AddCarView: View {
     @State private var showingVINScanner = false
     @State private var photos: [UIImage] = []
     @State private var photoLabels: [ObjectIdentifier: CarPartLabel] = [:]
+    @State private var photoMetadata: [ObjectIdentifier: PhotoCaptureMetadata] = [:]
 
     var body: some View {
         NavigationStack {
@@ -85,7 +86,13 @@ struct AddCarView: View {
                 
                 Section("Photos") {
                     CarPhotoStrip(
-                        items: photos.map { CarPhotoItem(image: $0, caption: photoLabels[ObjectIdentifier($0)]?.caption) },
+                        items: photos.map { image in
+                            let id = ObjectIdentifier(image)
+                            return CarPhotoItem(image: image,
+                                                caption: photoLabels[id]?.caption,
+                                                date: photoMetadata[id]?.captureDate,
+                                                coordinate: photoMetadata[id]?.coordinate)
+                        },
                         onAdd: addPhoto,
                         onDelete: deletePhoto
                     )
@@ -303,8 +310,9 @@ struct AddCarView: View {
         return digitYears[char]
     }
 
-    private func addPhoto(_ image: UIImage) {
+    private func addPhoto(_ image: UIImage, _ metadata: PhotoCaptureMetadata) {
         photos.append(image)
+        photoMetadata[ObjectIdentifier(image)] = metadata
         // Label the part/side on-device as the photo is added (iOS 27+).
         if #available(iOS 27, *) {
             Task {
@@ -319,6 +327,7 @@ struct AddCarView: View {
         guard photos.indices.contains(index) else { return }
         let image = photos.remove(at: index)
         photoLabels[ObjectIdentifier(image)] = nil
+        photoMetadata[ObjectIdentifier(image)] = nil
     }
 
     private func addCar() {
@@ -340,6 +349,9 @@ struct AddCarView: View {
                     photo.part = label.part
                     photo.side = label.side
                 }
+                if let metadata = photoMetadata[ObjectIdentifier(image)] {
+                    photo.apply(metadata)
+                }
                 modelContext.insert(photo)
             }
         }
@@ -351,4 +363,5 @@ struct AddCarView: View {
 #Preview {
     AddCarView()
         .modelContainer(for: Car.self, inMemory: true)
+        .environment(LocationManager())
 }

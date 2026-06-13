@@ -15,7 +15,14 @@ private let logger = Logger(subsystem: "com.teslacare", category: "Location")
 final class LocationManager: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     var userLocation: CLLocation?
+    var latestHeading: CLHeading?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
+
+    /// The current compass heading in degrees (true north preferred), or `nil` if unavailable.
+    var headingDegrees: Double? {
+        guard let latestHeading, latestHeading.headingAccuracy >= 0 else { return nil }
+        return latestHeading.trueHeading >= 0 ? latestHeading.trueHeading : latestHeading.magneticHeading
+    }
 
     override init() {
         super.init()
@@ -46,8 +53,25 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         logger.info("Location updated: \(locations.last?.coordinate.latitude ?? 0), \(locations.last?.coordinate.longitude ?? 0)")
     }
 
+    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        latestHeading = newHeading
+    }
+
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         logger.error("Location update failed: \(error)")
+    }
+
+    /// Begins compass updates so a heading is available when a photo is captured.
+    func startUpdatingHeading() {
+        guard CLLocationManager.headingAvailable() else {
+            logger.info("Heading unavailable on this device")
+            return
+        }
+        manager.startUpdatingHeading()
+    }
+
+    func stopUpdatingHeading() {
+        manager.stopUpdatingHeading()
     }
 
     func refresh() {

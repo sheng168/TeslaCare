@@ -13,6 +13,9 @@ struct ImagePickerView: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     /// Shows the tire-rim viewfinder guide. Disable for non-tire captures (e.g. car photos).
     var showTireOverlay: Bool = true
+    /// Optional callback delivering the capture's EXIF/TIFF metadata dictionary (camera only).
+    /// iOS strips GPS from these captures, so location must be sourced separately.
+    var onCaptureMetadata: (([String: Any]) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
@@ -47,6 +50,9 @@ struct ImagePickerView: UIViewControllerRepresentable {
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let image = info[.originalImage] as? UIImage {
                 logger.info("Image picked, source: \(picker.sourceType.rawValue), size: \(Int(image.size.width))x\(Int(image.size.height))")
+                if let metadata = info[.mediaMetadata] as? [String: Any] {
+                    parent.onCaptureMetadata?(metadata)
+                }
                 parent.selectedImage = image
                 if picker.sourceType == .camera {
                     UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)

@@ -186,7 +186,12 @@ struct CarDetailView: View {
             DisclosureGroup(isExpanded: $photosExpanded) {
                 CarPhotoStrip(
                     items: sortedPhotos.compactMap { photo in
-                        UIImage(data: photo.data).map { CarPhotoItem(image: $0, caption: photo.label) }
+                        UIImage(data: photo.data).map {
+                            CarPhotoItem(image: $0,
+                                         caption: photo.label,
+                                         date: photo.captureDate ?? photo.createdAt,
+                                         coordinate: photo.coordinate)
+                        }
                     },
                     onAdd: addPhoto,
                     onDelete: deletePhoto
@@ -205,11 +210,12 @@ struct CarDetailView: View {
         (car.photos ?? []).sorted { $0.sortIndex < $1.sortIndex }
     }
 
-    private func addPhoto(_ image: UIImage) {
+    private func addPhoto(_ image: UIImage, _ metadata: PhotoCaptureMetadata) {
         guard let data = image.jpegData(compressionQuality: 0.7) else { return }
         let nextIndex = (sortedPhotos.last?.sortIndex ?? -1) + 1
         let photo = CarPhoto(data: data, sortIndex: nextIndex)
         photo.car = car
+        photo.apply(metadata)
         modelContext.insert(photo)
     }
 
